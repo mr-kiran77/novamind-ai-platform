@@ -1,0 +1,34 @@
+# Environment Variables & Secrets (CRITICAL: Never commit API keys!)
+.env
+*.env
+.env.local
+
+# Virtual Environment
+.venv/
+venv/
+env/
+ENV/
+
+# Python Cache & Bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+
+# SQLite Database & Uploads
+*.db
+*.db-journal
+*.db-wal
+app/static/uploads/*
+!app/static/uploads/.gitkeep
+
+# IDE & OS Files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log

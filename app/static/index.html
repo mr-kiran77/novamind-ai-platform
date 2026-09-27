@@ -1,0 +1,1033 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NOVAMIND - AI Innovation & Idea Structuring Platform</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f5f3ff',
+              100: '#ede9fe',
+              500: '#8b5cf6',
+              600: '#7c3aed',
+              700: '#6d28d9',
+              800: '#5b21b6',
+              900: '#4c1d95',
+            },
+            cyber: {
+              cyan: '#06b6d4',
+              violet: '#8b5cf6',
+              emerald: '#10b981',
+              dark: '#0a0b10',
+              panel: '#121420'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <link rel="stylesheet" href="/static/css/app.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body class="bg-[#0a0b10] text-gray-100 min-h-screen flex flex-col selection:bg-purple-500 selection:text-white">
+
+  <!-- Top Navigation Bar -->
+  <header class="sticky top-0 z-40 bg-[#0a0b10]/80 backdrop-blur-xl border-b border-white/10 px-4 lg:px-8 py-3 transition-all">
+    <div class="max-w-7xl mx-auto flex items-center justify-between gap-4">
+      
+      <!-- Brand Logo -->
+      <div class="flex items-center gap-3 cursor-pointer" onclick="navigate('feed')">
+        <img src="/static/img/logo.svg" alt="Novamind Logo" class="w-10 h-10 rounded-xl shadow-lg shadow-purple-500/25 hover:scale-105 transition-transform">
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="text-xl font-extrabold tracking-tight gradient-text">NOVAMIND</span>
+            <span class="text-[10px] font-semibold bg-purple-500/20 text-purple-300 border border-purple-500/30 px-1.5 py-0.5 rounded-full uppercase tracking-wider">AI Platform</span>
+          </div>
+          <p class="text-[10px] text-gray-400 hidden sm:block">AI Innovation &amp; Idea Structuring Platform</p>
+        </div>
+      </div>
+
+      <!-- Center Nav Tabs -->
+      <nav class="hidden md:flex items-center gap-1 bg-white/5 border border-white/10 rounded-2xl p-1">
+        <button id="nav-feed" onclick="navigate('feed')" class="nav-tab px-3.5 py-1.5 rounded-xl text-sm font-medium transition-all text-purple-400 bg-white/10">
+          🌟 Feed
+        </button>
+        <button id="nav-discover" onclick="navigate('discover')" class="nav-tab px-3.5 py-1.5 rounded-xl text-sm font-medium transition-all text-gray-400 hover:text-white">
+          🧭 Discover
+        </button>
+        <button id="nav-trending" onclick="navigate('trending')" class="nav-tab px-3.5 py-1.5 rounded-xl text-sm font-medium transition-all text-gray-400 hover:text-white">
+          🔥 Trending
+        </button>
+        <button id="nav-moderation" onclick="navigate('moderation')" class="nav-tab px-3.5 py-1.5 rounded-xl text-sm font-medium transition-all text-gray-400 hover:text-white flex items-center gap-1.5">
+          🛡️ Moderation <span id="nav-mod-badge" class="hidden text-[10px] bg-amber-500/30 text-amber-300 px-1.5 py-0.2 rounded-full font-bold">0</span>
+        </button>
+        <button id="nav-admin" onclick="navigate('admin')" class="nav-tab px-3.5 py-1.5 rounded-xl text-sm font-medium transition-all text-gray-400 hover:text-white">
+          ⚙️ Admin
+        </button>
+      </nav>
+
+      <!-- Right Action Area -->
+      <div class="flex items-center gap-3">
+        <!-- Rapid Capture Button -->
+        <button onclick="openCaptureModal()" class="gradient-btn text-white px-4 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 shadow-lg shadow-purple-500/25">
+          <span class="text-base">✨</span>
+          <span class="hidden sm:inline">Capture Idea</span>
+        </button>
+
+        <!-- Messages Icon -->
+        <button onclick="navigate('messages')" class="relative p-2.5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors text-gray-300">
+          💬
+          <span id="unread-msg-badge" class="hidden absolute top-1 right-1 w-2.5 h-2.5 bg-cyan-400 rounded-full ring-2 ring-[#0a0b10]"></span>
+        </button>
+
+        <!-- Demo Role Switcher Dropdown (Crucial for Hackathon Judges!) -->
+        <div class="relative group">
+          <button class="flex items-center gap-1.5 text-xs bg-purple-950/60 border border-purple-500/30 text-purple-200 px-2.5 py-1.5 rounded-xl hover:bg-purple-900/60 transition-colors">
+            <span id="current-role-badge">Demo User</span>
+            <span class="text-[10px]">▼</span>
+          </button>
+          <div class="absolute right-0 mt-1 w-44 bg-[#141624] border border-white/10 rounded-xl shadow-2xl p-1.5 hidden group-hover:block z-50">
+            <div class="text-[10px] text-gray-400 px-2 py-1 font-semibold uppercase tracking-wider">Quick Switch Demo:</div>
+            <button onclick="switchRole('user')" class="w-full text-left px-2 py-1.5 rounded-lg text-xs hover:bg-white/10 flex items-center justify-between text-gray-200">
+              <span>Dr. Maya Lin (User)</span>
+              <span>⚡</span>
+            </button>
+            <button onclick="switchRole('moderator')" class="w-full text-left px-2 py-1.5 rounded-lg text-xs hover:bg-white/10 flex items-center justify-between text-amber-300">
+              <span>Alex Vance (Moderator)</span>
+              <span>🛡️</span>
+            </button>
+            <button onclick="switchRole('admin')" class="w-full text-left px-2 py-1.5 rounded-lg text-xs hover:bg-white/10 flex items-center justify-between text-cyan-300">
+              <span>SysAdmin (Admin)</span>
+              <span>👑</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Log In / Switch Account Button -->
+        <button onclick="openAuthModal()" class="text-xs bg-white/5 hover:bg-white/10 text-gray-200 border border-white/10 px-3 py-1.5 rounded-xl font-medium flex items-center gap-1.5 transition-colors">
+          <span>🔐</span>
+          <span class="hidden sm:inline">Log In</span>
+        </button>
+
+        <!-- User Profile Avatar & Streak -->
+        <div id="user-header-profile" class="flex items-center gap-2 cursor-pointer" onclick="navigate('profile')">
+          <div class="relative">
+            <img id="header-avatar" src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150" class="w-9 h-9 rounded-xl object-cover border border-purple-500/40">
+            <span id="header-streak-badge" class="absolute -bottom-1 -right-1 text-[9px] bg-amber-500 text-black font-extrabold px-1 rounded-full shadow">8d</span>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </header>
+
+  <!-- Notification Banner Container -->
+  <div id="toast-container" class="fixed top-16 right-4 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+  <!-- Primary Main Content Container -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-4 lg:p-8">
+
+    <!-- 1. FEED VIEW -->
+    <section id="view-feed" class="view-panel space-y-6">
+      <!-- Feed Top Filter & Stats Bar -->
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 glass-panel p-4">
+        <div class="flex flex-wrap items-center gap-2" id="feed-format-filters">
+          <button onclick="filterFeedFormat('all')" class="feed-filter-btn px-3 py-1.5 rounded-lg text-xs font-medium bg-purple-500 text-white">All Formats</button>
+          <button onclick="filterFeedFormat('voice')" class="feed-filter-btn px-3 py-1.5 rounded-lg text-xs font-medium bg-white/5 text-gray-400 hover:text-white">🎙️ Voice Note</button>
+          <button onclick="filterFeedFormat('image')" class="feed-filter-btn px-3 py-1.5 rounded-lg text-xs font-medium bg-white/5 text-gray-400 hover:text-white">🖼️ Concept Diagram</button>
+          <button onclick="filterFeedFormat('video')" class="feed-filter-btn px-3 py-1.5 rounded-lg text-xs font-medium bg-white/5 text-gray-400 hover:text-white">📹 Video Demo</button>
+          <button onclick="filterFeedFormat('document')" class="feed-filter-btn px-3 py-1.5 rounded-lg text-xs font-medium bg-white/5 text-gray-400 hover:text-white">📄 Research Doc</button>
+          <button onclick="filterFeedFormat('text')" class="feed-filter-btn px-3 py-1.5 rounded-lg text-xs font-medium bg-white/5 text-gray-400 hover:text-white">✍️ Text Quick</button>
+        </div>
+        <div class="flex items-center gap-3 text-xs text-gray-400">
+          <span>Sort: <strong class="text-white">Latest Innovation</strong></span>
+          <span class="text-white/20">|</span>
+          <span class="text-purple-300 flex items-center gap-1">✨ AI Moderated &amp; Verified</span>
+        </div>
+      </div>
+
+      <!-- Feed Grid -->
+      <div id="feed-cards-container" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- Rendered via JS -->
+      </div>
+    </section>
+
+    <!-- 2. DISCOVER & SEMANTIC SEARCH VIEW -->
+    <section id="view-discover" class="view-panel hidden space-y-6">
+      <div class="glass-panel p-6 space-y-4">
+        <h1 class="text-2xl font-bold gradient-text">Discover &amp; Semantic Innovation Search</h1>
+        <p class="text-sm text-gray-400">Search concepts by underlying meaning and intent, not just keyword matches. Powered by high-dimensional embedding vectors.</p>
+        
+        <!-- Search Input -->
+        <div class="relative">
+          <input type="text" id="semantic-search-input" placeholder="Type a concept, e.g. 'harvesting energy from vehicle traffic on highways'..."
+                 class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-purple-500 pr-24">
+          <button onclick="triggerSemanticSearch()" class="absolute right-2 top-2 gradient-btn text-white px-4 py-1.5 rounded-lg text-xs font-semibold">
+            Search Vector
+          </button>
+        </div>
+
+        <!-- Sample Query Chips -->
+        <div class="flex flex-wrap items-center gap-2 pt-2">
+          <span class="text-xs text-gray-500">Try queries:</span>
+          <button onclick="runSampleSearch('harvesting energy from vehicle traffic on highways')" class="text-xs bg-white/5 hover:bg-white/10 text-purple-300 px-2.5 py-1 rounded-full border border-purple-500/20">
+            ⚡ Piezoelectric energy roads
+          </button>
+          <button onclick="runSampleSearch('surgical robotics tactile haptics for VR')" class="text-xs bg-white/5 hover:bg-white/10 text-cyan-300 px-2.5 py-1 rounded-full border border-cyan-500/20">
+            🤖 Haptic surgery gloves
+          </button>
+          <button onclick="runSampleSearch('crop pollination with micro autonomous drones')" class="text-xs bg-white/5 hover:bg-white/10 text-emerald-300 px-2.5 py-1 rounded-full border border-emerald-500/20">
+            🐝 Drone pollination swarms
+          </button>
+        </div>
+      </div>
+
+      <!-- Categories Pills Bar -->
+      <div class="space-y-2">
+        <h3 class="text-xs uppercase font-bold text-gray-400 tracking-wider">Browse by Discipline</h3>
+        <div id="discover-categories-pills" class="flex flex-wrap gap-2">
+          <!-- Filled dynamically -->
+        </div>
+      </div>
+
+      <!-- Search Results Area -->
+      <div id="discover-results-container" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- Rendered via JS -->
+      </div>
+    </section>
+
+    <!-- 3. TRENDING VIEW -->
+    <section id="view-trending" class="view-panel hidden space-y-8">
+      <div class="glass-panel p-6">
+        <div class="flex items-center justify-between">
+          <div>
+            <h1 class="text-2xl font-bold gradient-text">Trending Innovation Radar</h1>
+            <p class="text-sm text-gray-400">Ranked using velocity of constructive engagement, unique discussions, and quality signals with time decay.</p>
+          </div>
+          <span class="px-3 py-1 bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-xl text-xs font-semibold">
+            Live Velocity Scoring
+          </span>
+        </div>
+      </div>
+
+      <!-- Rising Now -->
+      <div class="space-y-4">
+        <div class="flex items-center gap-2">
+          <span class="text-xl">🚀</span>
+          <h2 class="text-lg font-bold text-white">Rising Now</h2>
+          <span class="text-xs text-gray-500">Highest engagement momentum</span>
+        </div>
+        <div id="trending-rising-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5"></div>
+      </div>
+
+      <!-- Hot Discussions -->
+      <div class="space-y-4">
+        <div class="flex items-center gap-2">
+          <span class="text-xl">💬</span>
+          <h2 class="text-lg font-bold text-white">Hot Discussions</h2>
+          <span class="text-xs text-gray-500">Most active constructive debates</span>
+        </div>
+        <div id="trending-discussions-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5"></div>
+      </div>
+
+      <!-- Breakthrough Concepts -->
+      <div class="space-y-4">
+        <div class="flex items-center gap-2">
+          <span class="text-xl">💡</span>
+          <h2 class="text-lg font-bold text-white">Breakthrough Concepts</h2>
+          <span class="text-xs text-gray-500">High complexity &amp; transformational potential</span>
+        </div>
+        <div id="trending-breakthrough-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5"></div>
+      </div>
+    </section>
+
+    <!-- 4. IDEA DETAIL VIEW (Deep Dive + Signature Idea Journey) -->
+    <section id="view-idea-detail" class="view-panel hidden space-y-6">
+      <!-- Back button & Top bar -->
+      <div class="flex items-center justify-between">
+        <button onclick="navigate('feed')" class="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors">
+          ← Back to Feed
+        </button>
+        <div class="flex items-center gap-2" id="idea-detail-actions">
+          <!-- Populated via JS (Edit, Share, Report) -->
+        </div>
+      </div>
+
+      <!-- Main Detail Card -->
+      <div class="glass-panel p-6 lg:p-8 space-y-6">
+        
+        <!-- Creator Header -->
+        <div class="flex items-center justify-between border-b border-white/10 pb-4">
+          <div class="flex items-center gap-3">
+            <img id="detail-creator-avatar" src="" class="w-12 h-12 rounded-xl object-cover border border-purple-500/40">
+            <div>
+              <div class="flex items-center gap-2">
+                <h4 id="detail-creator-name" class="font-bold text-base text-white">Creator Name</h4>
+                <span id="detail-creator-handle" class="text-xs text-purple-400">@handle</span>
+              </div>
+              <p id="detail-creator-bio" class="text-xs text-gray-400 line-clamp-1">Bio</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            <span id="detail-category-badge" class="px-3 py-1 rounded-full text-xs font-semibold bg-purple-500/20 text-purple-300 border border-purple-500/30">Category</span>
+            <button id="detail-follow-btn" onclick="toggleDetailFollow()" class="text-xs bg-white/10 hover:bg-white/20 text-white px-3 py-1.5 rounded-lg transition-colors font-medium">Follow</button>
+          </div>
+        </div>
+
+        <!-- Idea Title & Summary -->
+        <div>
+          <h1 id="detail-title" class="text-2xl lg:text-3xl font-extrabold text-white leading-tight">Idea Title</h1>
+          <p id="detail-summary" class="mt-2 text-sm text-purple-200 bg-purple-950/40 border border-purple-500/20 p-3 rounded-xl">One line summary</p>
+        </div>
+
+        <!-- SIGNATURE VISUAL "IDEA JOURNEY" -->
+        <div class="bg-black/40 border border-white/10 rounded-2xl p-4 lg:p-6 space-y-3">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold uppercase tracking-wider text-purple-300 flex items-center gap-1.5">
+              🚀 Signature Idea Journey
+            </span>
+            <span id="journey-stage-indicator" class="text-xs text-gray-400">Current Stage: <strong>Structured Concept</strong></span>
+          </div>
+
+          <!-- Journey Stepper Track -->
+          <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2 pt-2" id="journey-steps-container">
+            <!-- 7 Stages from Specification: Raw Thought -> Structured Idea -> Discussion -> Improved Concept -> Prototype -> Project -> Opportunity -->
+          </div>
+        </div>
+
+        <!-- Media Display (Audio, Video, Image, Document) -->
+        <div id="detail-media-container" class="rounded-xl overflow-hidden bg-black/30 border border-white/10 hidden">
+          <!-- Populated via JS -->
+        </div>
+
+        <!-- Meaningful Positive Reactions Bar -->
+        <div class="border-y border-white/10 py-4 space-y-2">
+          <div class="text-xs text-gray-400 font-semibold flex items-center justify-between">
+            <span>Positive Impact Reactions</span>
+            <span class="text-[11px] text-purple-400">No downvotes &bull; Constructive validation</span>
+          </div>
+          <div class="flex flex-wrap gap-2" id="detail-reactions-bar">
+            <!-- Filled dynamically with 9 reactions -->
+          </div>
+        </div>
+
+        <!-- Tabbed Detailed Breakdown (22 Fields Blueprint) -->
+        <div class="space-y-4">
+          <div class="flex border-b border-white/10 gap-4 text-sm font-semibold">
+            <button id="tab-btn-blueprint" onclick="switchDetailTab('blueprint')" class="pb-2 border-b-2 border-purple-500 text-purple-400">
+              📋 22-Field Innovation Blueprint
+            </button>
+            <button id="tab-btn-raw" onclick="switchDetailTab('raw')" class="pb-2 text-gray-400 hover:text-white">
+              🎙️ Raw Capture
+            </button>
+            <button id="tab-btn-versions" onclick="switchDetailTab('versions')" class="pb-2 text-gray-400 hover:text-white">
+              📜 Version History
+            </button>
+            <button id="tab-btn-collaborations" onclick="switchDetailTab('collaborations')" class="pb-2 text-gray-400 hover:text-white">
+              🤝 Collaborators
+            </button>
+          </div>
+
+          <!-- Blueprint Content Tab -->
+          <div id="detail-tab-blueprint" class="space-y-6 pt-2">
+            <!-- Populated via JS with problem, solution, benefits, tech, etc. -->
+          </div>
+
+          <!-- Raw Capture Content Tab -->
+          <div id="detail-tab-raw" class="hidden space-y-4 pt-2">
+            <div class="p-4 bg-white/5 rounded-xl border border-white/10">
+              <span class="text-xs uppercase text-gray-400 font-bold block mb-1">Original Unedited Thought</span>
+              <p id="detail-raw-text" class="text-sm text-gray-200 whitespace-pre-wrap"></p>
+            </div>
+          </div>
+
+          <!-- Version History Tab -->
+          <div id="detail-tab-versions" class="hidden space-y-3 pt-2">
+            <div id="detail-versions-container" class="space-y-2"></div>
+          </div>
+
+          <!-- Collaborations Tab -->
+          <div id="detail-tab-collaborations" class="hidden space-y-4 pt-2">
+            <div class="flex items-center justify-between">
+              <h4 class="text-sm font-bold text-white">Innovation Team &amp; Open Roles</h4>
+              <button onclick="openCollabModal()" class="gradient-btn text-white text-xs px-3 py-1.5 rounded-lg font-semibold">
+                🤝 Propose Collaboration
+              </button>
+            </div>
+            <div id="detail-collabs-container" class="grid grid-cols-1 sm:grid-cols-2 gap-3"></div>
+          </div>
+        </div>
+
+        <!-- Threaded Constructive Discussion Section -->
+        <div class="border-t border-white/10 pt-6 space-y-4">
+          <div class="flex items-center justify-between">
+            <h3 class="text-lg font-bold text-white flex items-center gap-2">
+              💬 Constructive Discussion
+              <span id="detail-comment-count" class="text-xs bg-white/10 text-gray-300 px-2 py-0.5 rounded-full">0</span>
+            </h3>
+            <span class="text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-lg">
+              🛡️ Toxicity Guard Active
+            </span>
+          </div>
+
+          <!-- Comment Input Box -->
+          <div class="bg-white/5 border border-white/10 rounded-xl p-3 space-y-3">
+            <div class="flex items-center gap-2 text-xs">
+              <span class="text-gray-400">Discussion Tag:</span>
+              <select id="comment-type-select" class="bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-xs text-gray-200">
+                <option value="constructive_suggestion">💡 Constructive Suggestion</option>
+                <option value="comment">💬 Comment</option>
+                <option value="question">❓ Clarifying Question</option>
+                <option value="collaboration_proposal">🤝 Collaboration Pitch</option>
+              </select>
+            </div>
+            <textarea id="comment-input" rows="2" placeholder="Share constructive feedback, improvements, or questions..."
+                      class="w-full bg-black/30 border border-white/10 rounded-lg p-2.5 text-sm focus:outline-none focus:border-purple-500 text-gray-200"></textarea>
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] text-gray-500">Constructive critique is encouraged; abusive harassment is blocked automatically.</span>
+              <button onclick="submitComment()" class="gradient-btn text-white px-4 py-1.5 rounded-lg text-xs font-semibold">
+                Post Discussion
+              </button>
+            </div>
+          </div>
+
+          <!-- Discussion Stream -->
+          <div id="detail-comments-stream" class="space-y-3">
+            <!-- Populated via JS -->
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- 5. PRIVATE MESSAGING VIEW -->
+    <section id="view-messages" class="view-panel hidden">
+      <div class="glass-panel overflow-hidden grid grid-cols-1 md:grid-cols-3 h-[680px]">
+        <!-- Conversations List Panel -->
+        <div class="border-r border-white/10 flex flex-col">
+          <div class="p-4 border-b border-white/10 flex items-center justify-between">
+            <h2 class="font-bold text-white text-base">Private Discussions</h2>
+            <button onclick="openNewChatModal()" class="text-xs bg-purple-500/20 text-purple-300 border border-purple-500/30 px-2.5 py-1 rounded-lg hover:bg-purple-500/30">
+              + New Chat
+            </button>
+          </div>
+          <div id="conversations-list" class="flex-1 overflow-y-auto divide-y divide-white/5">
+            <!-- Filled via JS -->
+          </div>
+        </div>
+
+        <!-- Chat Stream Panel -->
+        <div class="col-span-2 flex flex-col bg-black/20">
+          <!-- Chat Header -->
+          <div class="p-4 border-b border-white/10 flex items-center justify-between bg-white/[0.02]" id="active-chat-header">
+            <div class="flex items-center gap-3">
+              <div class="w-9 h-9 rounded-xl bg-purple-500/30 flex items-center justify-center font-bold text-purple-300 text-sm" id="active-chat-avatar">
+                💬
+              </div>
+              <div>
+                <h4 class="font-bold text-sm text-white" id="active-chat-title">Select a conversation</h4>
+                <p class="text-[11px] text-gray-400" id="active-chat-subtitle">End-to-end private discussion</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Messages Stream -->
+          <div class="flex-1 p-4 overflow-y-auto space-y-3" id="chat-messages-container">
+            <div class="h-full flex items-center justify-center text-gray-500 text-sm">
+              Select or start a private discussion with an innovator
+            </div>
+          </div>
+
+          <!-- Typing Indicator -->
+          <div id="chat-typing-indicator" class="px-4 py-1 text-[11px] text-cyan-400 hidden">
+            Innovator is typing...
+          </div>
+
+          <!-- Chat Input -->
+          <div class="p-3 border-t border-white/10 bg-white/[0.02] flex items-center gap-2">
+            <input type="text" id="chat-message-input" placeholder="Type a private message..."
+                   class="flex-1 bg-white/5 border border-white/10 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-purple-500"
+                   onkeydown="if(event.key==='Enter') sendChatMessage()">
+            <button onclick="sendChatMessage()" class="gradient-btn text-white px-4 py-2 rounded-xl text-sm font-semibold">
+              Send
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6. USER PROFILE & INNOVATION DASHBOARD VIEW -->
+    <section id="view-profile" class="view-panel hidden space-y-6">
+      <div id="profile-dashboard-container">
+        <!-- Rendered dynamically -->
+      </div>
+    </section>
+
+    <!-- 7. MODERATOR PORTAL VIEW -->
+    <section id="view-moderation" class="view-panel hidden space-y-6">
+      <div class="glass-panel p-6 space-y-4">
+        <div class="flex items-center justify-between">
+          <div>
+            <h1 class="text-2xl font-bold text-amber-300 flex items-center gap-2">
+              🛡️ Content Safety &amp; Moderation Operations
+            </h1>
+            <p class="text-sm text-gray-400">Review flagged ideas, user reports, and manage appeals with an auditable decision trail.</p>
+          </div>
+          <span class="text-xs bg-amber-500/20 text-amber-300 border border-amber-500/40 px-3 py-1 rounded-full font-bold">
+            Role: Community Moderator
+          </span>
+        </div>
+
+        <!-- Moderator Tabs -->
+        <div class="flex gap-4 border-b border-white/10 text-sm font-semibold">
+          <button id="mod-tab-reports" onclick="switchModTab('reports')" class="pb-2 border-b-2 border-amber-500 text-amber-300">
+            Pending Reports (<span id="mod-reports-count">0</span>)
+          </button>
+          <button id="mod-tab-quarantine" onclick="switchModTab('quarantine')" class="pb-2 text-gray-400 hover:text-white">
+            Quarantine Queue (<span id="mod-quarantine-count">0</span>)
+          </button>
+          <button id="mod-tab-appeals" onclick="switchModTab('appeals')" class="pb-2 text-gray-400 hover:text-white">
+            User Appeals (<span id="mod-appeals-count">0</span>)
+          </button>
+        </div>
+
+        <div id="mod-tab-content" class="pt-4">
+          <!-- Filled via JS -->
+        </div>
+      </div>
+    </section>
+
+    <!-- 8. ADMINISTRATOR PORTAL & MULTI-AGENT MONITOR -->
+    <section id="view-admin" class="view-panel hidden space-y-6">
+      <div class="glass-panel p-6 space-y-6">
+        <div class="flex items-center justify-between">
+          <div>
+            <h1 class="text-2xl font-bold text-cyan-300 flex items-center gap-2">
+              ⚙️ System Administration &amp; Multi-Agent Orchestrator
+            </h1>
+            <p class="text-sm text-gray-400">Platform telemetry, user role governance, and live inspection of all 50 specialist AI agents.</p>
+          </div>
+          <span class="text-xs bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 px-3 py-1 rounded-full font-bold">
+            Role: Administrator
+          </span>
+        </div>
+
+        <!-- Admin KPI Metrics Grid -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3" id="admin-kpis-container">
+          <!-- Filled via JS -->
+        </div>
+
+        <!-- AI Provider Configuration Card -->
+        <div class="p-4 bg-white/5 border border-white/10 rounded-xl space-y-3">
+          <h3 class="text-sm font-bold text-white flex items-center gap-2">
+            🤖 AI Engine Provider Setting
+          </h3>
+          <div class="flex flex-col sm:flex-row items-center gap-3">
+            <select id="admin-provider-select" class="bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-xs text-white">
+              <option value="local">Smart Local Engine (Offline / Deterministic / Hackathon-Safe)</option>
+              <option value="gemini">Google Gemini API (Gemini 2.5 Flash / Gemini 1.5 Pro)</option>
+            </select>
+            <input type="password" id="admin-gemini-key" placeholder="Optional Google Gemini API Key"
+                   class="flex-1 bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-xs text-white">
+            <button onclick="saveAdminProviderSettings()" class="gradient-btn text-white text-xs px-4 py-2 rounded-lg font-semibold whitespace-nowrap">
+              Update Provider
+            </button>
+          </div>
+        </div>
+
+        <!-- 50 Specialist Agent Registry & Telemetry Monitor -->
+        <div class="space-y-4">
+          <div class="flex items-center justify-between">
+            <h3 class="text-base font-bold text-white flex items-center gap-2">
+              ⚡ 50 Specialist Agent Registry &amp; Live Telemetry
+            </h3>
+            <span class="text-xs text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-2.5 py-0.5 rounded-full">
+              50 Registered Agents Active
+            </span>
+          </div>
+
+          <!-- Agent Definitions Filter Pills -->
+          <div class="flex flex-wrap gap-2 text-xs" id="admin-agent-category-filters">
+            <button onclick="filterAdminAgents('all')" class="px-2.5 py-1 rounded-lg bg-cyan-500 text-black font-semibold">All (50)</button>
+            <button onclick="filterAdminAgents('generation')" class="px-2.5 py-1 rounded-lg bg-white/5 text-gray-300">Generation</button>
+            <button onclick="filterAdminAgents('analysis')" class="px-2.5 py-1 rounded-lg bg-white/5 text-gray-300">Analysis</button>
+            <button onclick="filterAdminAgents('safety')" class="px-2.5 py-1 rounded-lg bg-white/5 text-gray-300">Safety &amp; Moderation</button>
+            <button onclick="filterAdminAgents('multimodal')" class="px-2.5 py-1 rounded-lg bg-white/5 text-gray-300">Multimodal</button>
+            <button onclick="filterAdminAgents('recommendation')" class="px-2.5 py-1 rounded-lg bg-white/5 text-gray-300">Recommendation</button>
+            <button onclick="filterAdminAgents('quality')" class="px-2.5 py-1 rounded-lg bg-white/5 text-gray-300">QA &amp; Quality</button>
+            <button onclick="filterAdminAgents('operations')" class="px-2.5 py-1 rounded-lg bg-white/5 text-gray-300">Operations</button>
+          </div>
+
+          <!-- Agent Definitions Cards Grid -->
+          <div id="admin-agents-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[360px] overflow-y-auto p-1">
+            <!-- Populated via JS -->
+          </div>
+
+          <!-- Recent Agent Runs Table -->
+          <div class="space-y-2 pt-2">
+            <h4 class="text-xs uppercase font-bold text-gray-400 tracking-wider">Live Agent Run Telemetry</h4>
+            <div class="overflow-x-auto rounded-xl border border-white/10">
+              <table class="w-full text-left text-xs text-gray-300">
+                <thead class="bg-white/5 text-gray-400 uppercase text-[10px]">
+                  <tr>
+                    <th class="p-2.5">Agent Name</th>
+                    <th class="p-2.5">Trigger Event</th>
+                    <th class="p-2.5">Status</th>
+                    <th class="p-2.5">Latency</th>
+                    <th class="p-2.5">Confidence</th>
+                    <th class="p-2.5">Time</th>
+                  </tr>
+                </thead>
+                <tbody id="admin-runs-tbody" class="divide-y divide-white/5 bg-black/20">
+                  <!-- Populated via JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ===================================================================
+       FLOATING AI PERSONAL ASSISTANT ("NOVA") WIDGET
+       =================================================================== -->
+  <div class="fixed bottom-6 right-6 z-50 flex flex-col items-end">
+    <!-- Chat Drawer -->
+    <div id="assistant-drawer" class="hidden mb-3 w-[360px] sm:w-[420px] h-[520px] glass-panel border-purple-500/30 flex flex-col shadow-2xl overflow-hidden transition-all">
+      <!-- Assistant Header -->
+      <div class="p-3.5 bg-purple-950/60 border-b border-white/10 flex items-center justify-between">
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-lg gradient-btn flex items-center justify-center text-sm shadow">
+            ✨
+          </div>
+          <div>
+            <h4 class="font-bold text-xs text-white">Nova &bull; AI Innovation Co-Pilot</h4>
+            <p class="text-[10px] text-purple-300">Structuring, critique &amp; collaboration assistant</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-1.5">
+          <button id="voice-assistant-toggle" onclick="toggleVoiceSpeech()" title="Toggle Voice Speech"
+                  class="p-1.5 text-xs rounded-lg bg-white/10 hover:bg-white/20 text-gray-300">
+            🔊
+          </button>
+          <button onclick="toggleAssistantDrawer()" class="p-1.5 text-xs rounded-lg hover:bg-white/10 text-gray-400">
+            ✕
+          </button>
+        </div>
+      </div>
+
+      <!-- Quick Prompt Suggestions -->
+      <div class="p-2 bg-white/[0.02] border-b border-white/5 flex gap-1.5 overflow-x-auto text-[11px]">
+        <button onclick="sendAssistantQuickPrompt('How do I structure my latest idea?')" class="whitespace-nowrap px-2.5 py-1 rounded-full bg-purple-500/10 text-purple-300 border border-purple-500/20 hover:bg-purple-500/20">
+          💡 Structure an idea
+        </button>
+        <button onclick="sendAssistantQuickPrompt('Draft a collaboration pitch for this concept')" class="whitespace-nowrap px-2.5 py-1 rounded-full bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 hover:bg-cyan-500/20">
+          🤝 Collaboration pitch
+        </button>
+        <button onclick="sendAssistantQuickPrompt('What are the emerging trends today?')" class="whitespace-nowrap px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 hover:bg-emerald-500/20">
+          🔥 Emerging trends
+        </button>
+      </div>
+
+      <!-- Messages Stream -->
+      <div id="assistant-messages" class="flex-1 p-3 overflow-y-auto space-y-3 text-xs">
+        <div class="bg-purple-950/40 border border-purple-500/20 rounded-xl p-3 text-gray-200">
+          Hello! I am <strong>Nova</strong>, your AI Innovation co-pilot. I can help transform raw thoughts into structured engineering blueprints, draft collaboration pitches, or navigate the platform. How can I assist you right now?
+        </div>
+      </div>
+
+      <!-- Voice Input / Mic Controls -->
+      <div id="assistant-voice-banner" class="hidden px-3 py-1.5 bg-cyan-950/40 border-t border-cyan-500/20 text-[11px] text-cyan-300 flex items-center justify-between">
+        <span class="flex items-center gap-1.5">
+          <span class="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span>
+          Listening for voice input...
+        </span>
+        <button onclick="stopVoiceRecognition()" class="text-xs text-red-400 hover:underline">Stop</button>
+      </div>
+
+      <!-- Assistant Input Box -->
+      <div class="p-2.5 bg-black/40 border-t border-white/10 flex items-center gap-2">
+        <button id="assistant-mic-btn" onclick="toggleVoiceInput()" title="Speak to Nova"
+                class="p-2 rounded-lg bg-white/10 hover:bg-purple-500/20 text-gray-300 transition-colors">
+          🎙️
+        </button>
+        <input type="text" id="assistant-input" placeholder="Ask Nova anything..."
+               class="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-purple-500"
+               onkeydown="if(event.key==='Enter') sendAssistantMessage()">
+        <button onclick="sendAssistantMessage()" class="gradient-btn text-white p-2 rounded-lg text-xs font-semibold">
+          ➤
+        </button>
+      </div>
+    </div>
+
+    <!-- Floating Orb Button -->
+    <button onclick="toggleAssistantDrawer()" class="w-14 h-14 rounded-full gradient-btn ai-assistant-orb flex items-center justify-center text-white shadow-2xl relative group">
+      <span class="text-2xl">✨</span>
+      <span class="absolute -top-1 -right-1 w-3.5 h-3.5 bg-cyan-400 rounded-full ring-2 ring-[#0a0b10]"></span>
+    </button>
+  </div>
+
+  <!-- ===================================================================
+       RAPID IDEA CAPTURE MODAL
+       =================================================================== -->
+  <div id="modal-capture" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md hidden flex items-center justify-center p-4">
+    <div class="glass-panel w-full max-w-2xl border-purple-500/30 shadow-2xl max-h-[92vh] flex flex-col overflow-hidden">
+      
+      <!-- Modal Header -->
+      <div class="p-4 border-b border-white/10 flex items-center justify-between bg-purple-950/30">
+        <div class="flex items-center gap-2">
+          <span class="text-xl">🚀</span>
+          <div>
+            <h3 class="font-bold text-base text-white">Rapid Idea Capture</h3>
+            <p class="text-xs text-purple-300">Record a fleeting thought before it disappears</p>
+          </div>
+        </div>
+        <button onclick="closeCaptureModal()" class="text-gray-400 hover:text-white text-lg">✕</button>
+      </div>
+
+      <!-- Mode Selector Tabs -->
+      <div class="flex border-b border-white/10 bg-white/[0.02] text-xs font-semibold overflow-x-auto">
+        <button id="cap-tab-write" onclick="switchCaptureTab('write')" class="px-4 py-2.5 border-b-2 border-purple-500 text-purple-400">
+          ✍️ Write Note
+        </button>
+        <button id="cap-tab-voice" onclick="switchCaptureTab('voice')" class="px-4 py-2.5 text-gray-400 hover:text-white">
+          🎙️ Record Voice
+        </button>
+        <button id="cap-tab-video" onclick="switchCaptureTab('video')" class="px-4 py-2.5 text-gray-400 hover:text-white">
+          📹 Record Video
+        </button>
+        <button id="cap-tab-upload" onclick="switchCaptureTab('upload')" class="px-4 py-2.5 text-gray-400 hover:text-white">
+          📁 Upload Media
+        </button>
+        <button id="cap-tab-quick" onclick="switchCaptureTab('quick')" class="px-4 py-2.5 text-gray-400 hover:text-white">
+          ⚡ 30s Quick Capture
+        </button>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="p-6 flex-1 overflow-y-auto space-y-4">
+        
+        <!-- Category & Title (Optional) -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-gray-400 mb-1">Concept Title (Optional)</label>
+            <input type="text" id="capture-title-input" placeholder="AI will generate if left blank"
+                   class="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-purple-500 text-white">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-gray-400 mb-1">Discipline Category</label>
+            <select id="capture-category-input" class="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-xs text-white">
+              <option value="General">Automatic (AI Classification)</option>
+              <option value="Energy & Sustainability">Energy &amp; Sustainability</option>
+              <option value="Healthcare & Biotech">Healthcare &amp; Biotech</option>
+              <option value="Robotics & Hardware">Robotics &amp; Hardware</option>
+              <option value="Artificial Intelligence">Artificial Intelligence</option>
+              <option value="Agriculture & Food">Agriculture &amp; Food</option>
+              <option value="Transportation & Mobility">Transportation &amp; Mobility</option>
+              <option value="Space & Aerospace">Space &amp; Aerospace</option>
+              <option value="Education & EdTech">Education &amp; EdTech</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- 1. Write Input Panel -->
+        <div id="cap-panel-write" class="space-y-2">
+          <label class="block text-xs font-bold text-gray-400">Describe Your Raw Idea</label>
+          <textarea id="capture-text-content" rows="6" placeholder="Example: I think roads could generate energy from vehicles passing over specially designed piezoelectric sections..."
+                    class="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-sm focus:outline-none focus:border-purple-500 text-gray-200"></textarea>
+        </div>
+
+        <!-- 2. Voice Recorder Panel -->
+        <div id="cap-panel-voice" class="hidden space-y-4 text-center py-6">
+          <div class="w-20 h-20 rounded-full mx-auto gradient-btn flex items-center justify-center text-3xl shadow-lg cursor-pointer"
+               id="voice-record-btn" onclick="toggleVoiceRecording()">
+            🎙️
+          </div>
+          <div>
+            <span id="voice-timer" class="text-xl font-mono font-bold text-white">00:00</span>
+            <p id="voice-status-text" class="text-xs text-gray-400 mt-1">Tap microphone to start recording your spoken thought</p>
+          </div>
+          <!-- Waveform Visualizer Canvas -->
+          <div class="h-12 w-full max-w-sm mx-auto bg-black/40 rounded-xl flex items-center justify-center gap-1 px-4 overflow-hidden" id="waveform-visualizer">
+            <span class="w-1.5 h-3 bg-purple-500 rounded-full waveform-bar"></span>
+            <span class="w-1.5 h-6 bg-cyan-400 rounded-full waveform-bar" style="animation-delay: 0.2s"></span>
+            <span class="w-1.5 h-9 bg-purple-400 rounded-full waveform-bar" style="animation-delay: 0.4s"></span>
+            <span class="w-1.5 h-5 bg-cyan-500 rounded-full waveform-bar" style="animation-delay: 0.6s"></span>
+            <span class="w-1.5 h-8 bg-purple-500 rounded-full waveform-bar" style="animation-delay: 0.1s"></span>
+          </div>
+        </div>
+
+        <!-- 3. Video Recorder Panel -->
+        <div id="cap-panel-video" class="hidden space-y-4 text-center">
+          <div class="aspect-video bg-black rounded-xl overflow-hidden border border-white/10 relative max-w-md mx-auto">
+            <video id="webcam-preview" autoplay playsinline muted class="w-full h-full object-cover"></video>
+            <div id="video-rec-badge" class="hidden absolute top-3 left-3 flex items-center gap-1.5 bg-red-600/80 px-2 py-0.5 rounded-full text-[11px] font-bold">
+              <span class="w-2 h-2 rounded-full bg-white animate-ping"></span> REC
+            </div>
+          </div>
+          <button id="video-record-btn" onclick="toggleVideoRecording()" class="gradient-btn text-white text-xs px-4 py-2 rounded-xl font-semibold">
+            Start Camera Record
+          </button>
+        </div>
+
+        <!-- 4. Media Upload Panel -->
+        <div id="cap-panel-upload" class="hidden space-y-4">
+          <div class="border-2 border-dashed border-white/20 hover:border-purple-500/50 rounded-2xl p-6 text-center cursor-pointer transition-colors bg-white/[0.01]"
+               onclick="document.getElementById('capture-file-input').click()">
+            <span class="text-3xl block mb-2">📁</span>
+            <span class="text-sm font-semibold text-gray-200 block">Select Audio, Video, Image, Diagram or Doc</span>
+            <span class="text-xs text-gray-500 block mt-1">Supported: MP3, WAV, MP4, PNG, JPG, PDF, MD (Max 50MB)</span>
+            <input type="file" id="capture-file-input" class="hidden" onchange="handleFileUpload(event)">
+          </div>
+          <div id="uploaded-file-preview" class="hidden p-3 bg-purple-500/10 border border-purple-500/30 rounded-xl text-xs flex items-center justify-between">
+            <span id="uploaded-file-name" class="font-mono text-purple-300 truncate max-w-xs">filename</span>
+            <button onclick="removeUploadedFile()" class="text-red-400 hover:text-red-300">✕</button>
+          </div>
+        </div>
+
+        <!-- 5. Quick 30-Sec Capture -->
+        <div id="cap-panel-quick" class="hidden space-y-3">
+          <div class="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-xs text-amber-200">
+            ⚡ <strong>Instant Thought Capture:</strong> One sentence is enough. Our AI Orchestrator will expand it into a full innovation blueprint.
+          </div>
+          <input type="text" id="capture-quick-sentence" placeholder="e.g. Biodegradable mycelium packaging that dissolves in 48 hours..."
+                 class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-purple-500 text-white">
+        </div>
+
+        <!-- Structure with AI Checkbox -->
+        <div class="flex items-center justify-between p-3 bg-white/5 border border-white/10 rounded-xl">
+          <div class="flex items-center gap-2">
+            <input type="checkbox" id="structure-ai-checkbox" checked class="w-4 h-4 rounded text-purple-600 focus:ring-purple-500">
+            <label for="structure-ai-checkbox" class="text-xs font-semibold text-gray-200 cursor-pointer">
+              Structure with AI Immediately
+            </label>
+          </div>
+          <span class="text-[11px] text-purple-400">Generates 22-part blueprint</span>
+        </div>
+
+        <!-- Multi-Agent Progress Bar (Shown during capture) -->
+        <div id="capture-pipeline-loader" class="hidden space-y-2 p-3 bg-purple-950/50 border border-purple-500/30 rounded-xl text-xs">
+          <div class="flex items-center justify-between text-purple-300">
+            <span id="pipeline-current-step">Orchestrating Specialist Agents...</span>
+            <span class="animate-spin">⚙️</span>
+          </div>
+          <div class="w-full bg-black/50 rounded-full h-1.5 overflow-hidden">
+            <div id="pipeline-progress-bar" class="bg-gradient-to-r from-purple-500 to-cyan-400 h-1.5 rounded-full transition-all duration-300" style="width: 25%"></div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="p-4 border-t border-white/10 bg-black/40 flex items-center justify-between">
+        <button onclick="closeCaptureModal()" class="text-xs text-gray-400 hover:text-white px-4 py-2">
+          Cancel
+        </button>
+        <button id="capture-submit-btn" onclick="submitCapturedIdea()" class="gradient-btn text-white px-6 py-2.5 rounded-xl text-xs font-bold shadow-lg shadow-purple-500/30">
+          🚀 Capture &amp; Structure Concept
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ===================================================================
+       ID & PASSWORD AUTHENTICATION / IMAGINARY PROFILE PORTAL
+       =================================================================== -->
+  <div id="modal-auth" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md hidden flex items-center justify-center p-4">
+    <div class="glass-panel w-full max-w-md border-purple-500/30 shadow-2xl p-6 space-y-4">
+      
+      <!-- Modal Header -->
+      <div class="text-center space-y-1">
+        <img src="/static/img/logo.svg" alt="Novamind Logo" class="w-14 h-14 mx-auto rounded-2xl shadow-xl shadow-purple-500/30">
+        <h2 class="text-xl font-bold text-white pt-1">Innovator Authentication</h2>
+        <p class="text-xs text-gray-400">Unique ID &amp; Password &bull; 100% Pseudonymous Privacy</p>
+      </div>
+
+      <!-- Mode Switcher Tabs (Sign In vs Create Account) -->
+      <div class="grid grid-cols-2 bg-white/5 p-1 rounded-xl text-xs font-semibold">
+        <button id="auth-tab-btn-login" onclick="Auth.switchAuthMode('login')"
+                class="py-2 rounded-lg bg-purple-600 text-white shadow transition-all">
+          🔑 Sign In
+        </button>
+        <button id="auth-tab-btn-register" onclick="Auth.switchAuthMode('register')"
+                class="py-2 rounded-lg text-gray-400 hover:text-white transition-all">
+          ✨ New Account
+        </button>
+      </div>
+
+      <!-- TAB 1: SIGN IN WITH ID & PASSWORD (INSTAGRAM STYLE) -->
+      <div id="auth-panel-login" class="space-y-3">
+        <div>
+          <label class="block text-xs font-semibold text-gray-300 mb-1">Unique ID / Username or Mobile Number</label>
+          <input type="text" id="login-identifier-input" value="mayalin" placeholder="e.g. mayalin or +19876543210"
+                 class="w-full bg-white/5 border border-white/10 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-purple-500 text-white font-mono">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-gray-300 mb-1">Password</label>
+          <input type="password" id="login-password-input" value="Password123!" placeholder="Enter your password"
+                 class="w-full bg-white/5 border border-white/10 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-purple-500 text-white">
+        </div>
+        <button onclick="Auth.submitIDPasswordLogin()" class="w-full gradient-btn text-white py-2.5 rounded-xl text-xs font-bold shadow-lg shadow-purple-500/30">
+          Sign In with ID &amp; Password
+        </button>
+        <div class="p-2.5 bg-purple-500/10 border border-purple-500/20 rounded-xl text-[11px] text-purple-300 text-center">
+          💡 Demo ID: <strong>mayalin</strong> (or <strong>alexvance</strong>, <strong>sysadmin</strong>) &bull; Password: <strong>Password123!</strong>
+        </div>
+      </div>
+
+      <!-- TAB 2: CREATE NEW IMAGINARY ACCOUNT -->
+      <div id="auth-panel-register" class="hidden space-y-3">
+        
+        <!-- Step A: Mobile Number (For device security only) -->
+        <div id="reg-step-mobile" class="space-y-3">
+          <div>
+            <label class="block text-xs font-semibold text-gray-300 mb-1">Mobile Number (For Verification Only)</label>
+            <input type="tel" id="reg-mobile-input" placeholder="+19876543299"
+                   class="w-full bg-white/5 border border-white/10 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-purple-500 text-white font-mono">
+            <span class="text-[10px] text-gray-500 mt-1 block">Your mobile number is private and never displayed publicly on your profile.</span>
+          </div>
+          <button onclick="Auth.requestRegisterOTP()" class="w-full gradient-btn text-white py-2 rounded-xl text-xs font-bold">
+            Send Verification Code
+          </button>
+        </div>
+
+        <!-- Step B: OTP + Password + Imaginary Identity -->
+        <div id="reg-step-details" class="hidden space-y-3">
+          <div class="p-2 bg-purple-500/10 border border-purple-500/20 rounded-xl text-[11px] text-purple-300">
+            Dev Code: <strong>123456</strong>
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block text-xs font-semibold text-gray-300 mb-1">6-Digit Code</label>
+              <input type="text" id="reg-otp-input" value="123456" maxlength="6"
+                     class="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-center text-sm font-mono text-white">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-gray-300 mb-1">Set Password</label>
+              <input type="password" id="reg-password-input" placeholder="Password123!"
+                     class="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white">
+            </div>
+          </div>
+
+          <!-- Imaginary Persona Card & Generator -->
+          <div class="p-3 bg-black/40 border border-purple-500/30 rounded-xl space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] uppercase font-bold text-purple-300">🎭 Imaginary Identity</span>
+              <button type="button" onclick="Auth.randomizeImaginaryPersona()" class="text-[11px] text-cyan-400 hover:underline">
+                🎲 Randomize
+              </button>
+            </div>
+            <div class="flex items-center gap-3">
+              <img id="persona-avatar-preview" src="https://api.dicebear.com/7.x/bottts/svg?seed=quantum_spark_42" class="w-10 h-10 rounded-xl bg-purple-950/50 border border-purple-500/40">
+              <div class="flex-1">
+                <input type="text" id="reg-display-input" placeholder="Imaginary Alias"
+                       class="w-full bg-white/5 border border-white/10 rounded-lg px-2.5 py-1 text-xs text-white font-semibold">
+                <input type="text" id="reg-username-input" placeholder="unique_id_handle"
+                       class="w-full bg-white/5 border border-white/10 rounded-lg px-2.5 py-1 text-xs text-purple-300 font-mono mt-1">
+              </div>
+            </div>
+            <p class="text-[10px] text-gray-400">No personal names or emails required. You can stay completely pseudonymous or use your own custom handle.</p>
+          </div>
+
+          <button onclick="Auth.submitRegisterAccount()" class="w-full gradient-btn text-white py-2.5 rounded-xl text-xs font-bold shadow-lg shadow-purple-500/30">
+            Create Pseudonymous Account
+          </button>
+        </div>
+
+      </div>
+
+      <!-- Close / Dismiss -->
+      <div class="text-center pt-1 border-t border-white/5">
+        <button onclick="closeAuthModal()" class="text-xs text-gray-400 hover:text-white">
+          Close &bull; Continue as Guest Demo
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ===================================================================
+       COLLABORATION REQUEST MODAL
+       =================================================================== -->
+  <div id="modal-collab" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md hidden flex items-center justify-center p-4">
+    <div class="glass-panel w-full max-w-lg border-purple-500/30 shadow-2xl p-6 space-y-4">
+      <div class="flex items-center justify-between border-b border-white/10 pb-3">
+        <div>
+          <h3 class="font-bold text-white text-base flex items-center gap-2">
+            🤝 Propose Idea Collaboration
+          </h3>
+          <p class="text-[11px] text-gray-400">Join the builder team with code, resources, or an advanced version</p>
+        </div>
+        <button onclick="closeCollabModal()" class="text-gray-400 hover:text-white text-lg">✕</button>
+      </div>
+
+      <input type="hidden" id="collab-target-idea-id" value="">
+      <div id="collab-idea-title-banner" class="text-xs text-purple-200 bg-purple-950/40 p-2.5 rounded-xl border border-purple-500/30 font-semibold flex items-center gap-2">
+        <span>💡 Concept:</span>
+        <span id="collab-idea-title-text" class="truncate text-white">Select an idea</span>
+      </div>
+
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs font-bold text-gray-400 mb-1">What can you contribute?</label>
+          <select id="collab-role-select" class="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-xs text-white">
+            <option value="advanced_version">⚡ Advanced Version / Next-Gen Architecture</option>
+            <option value="hardware_materials">🔬 Hardware, Raw Materials &amp; Lab Resources</option>
+            <option value="technical">🛠️ Technical / Software Engineering Help</option>
+            <option value="design">🎨 UI / UX &amp; Industrial Design</option>
+            <option value="research">📚 Scientific &amp; Academic Research</option>
+            <option value="business">📈 Business &amp; Commercialization</option>
+            <option value="mentorship">🧭 Mentorship &amp; Advisory</option>
+            <option value="general">✨ General Builder / Contributor</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-gray-400 mb-1">Your Proposal / Pitch Message</label>
+          <textarea id="collab-pitch-input" rows="4" placeholder="Explain your proposal (e.g. 'I have built a prototype algorithm for this', 'I have lab testing equipment and raw piezoelectric materials', etc.)..."
+                    class="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs focus:outline-none focus:border-purple-500 text-white"></textarea>
+        </div>
+        <p class="text-[10px] text-gray-500">
+          ℹ️ Your request will be delivered to the creator. Once accepted by the host, you will join the official collaborator team.
+        </p>
+      </div>
+
+      <div class="flex items-center justify-end gap-3 pt-2">
+        <button onclick="closeCollabModal()" class="text-xs text-gray-400 hover:text-white px-3 py-1.5">Cancel</button>
+        <button onclick="submitCollabProposal()" class="gradient-btn text-white px-5 py-2 rounded-xl text-xs font-bold shadow-lg shadow-purple-500/25">
+          🚀 Send Collaboration Offer
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- JavaScript Application Bundle -->
+  <script src="/static/js/api.js"></script>
+  <script src="/static/js/auth.js"></script>
+  <script src="/static/js/feed.js"></script>
+  <script src="/static/js/capture.js"></script>
+  <script src="/static/js/idea-detail.js"></script>
+  <script src="/static/js/trending.js"></script>
+  <script src="/static/js/discovery.js"></script>
+  <script src="/static/js/messaging.js"></script>
+  <script src="/static/js/profile.js"></script>
+  <script src="/static/js/moderation-portal.js"></script>
+  <script src="/static/js/admin-portal.js"></script>
+  <script src="/static/js/assistant.js"></script>
+  <script src="/static/js/voice.js"></script>
+  <script src="/static/js/app.js"></script>
+</body>
+</html>

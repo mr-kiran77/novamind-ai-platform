@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none">
+  <defs>
+    <!-- Background Gradient -->
+    <linearGradient id="bgGrad" x1="0" y1="0" x2="120" y2="120" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#1e1035" />
+      <stop offset="50%" stop-color="#0e1726" />
+      <stop offset="100%" stop-color="#0a2530" />
+    </linearGradient>
+
+    <!-- Glowing Vector Gradients -->
+    <linearGradient id="prismGrad" x1="20" y1="20" x2="100" y2="100" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#a78bfa" />
+      <stop offset="50%" stop-color="#8b5cf6" />
+      <stop offset="100%" stop-color="#06b6d4" />
+    </linearGradient>
+
+    <linearGradient id="sparkGrad" x1="45" y1="45" x2="75" y2="75" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="40%" stop-color="#38bdf8" />
+      <stop offset="100%" stop-color="#8b5cf6" />
+    </linearGradient>
+
+    <!-- Glow Filter -->
+    <filter id="neonGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="3" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- Rounded App Icon Background -->
+  <rect x="4" y="4" width="112" height="112" rx="28" fill="url(#bgGrad)" stroke="rgba(255,255,255,0.15)" stroke-width="1.5" />
+
+  <!-- Innovation Constellation Vectors -->
+  <path d="M60 22 L94 48 L82 92 L38 92 L26 48 Z" stroke="url(#prismGrad)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.6" />
+  
+  <!-- Inner Neural Idea Diamond -->
+  <path d="M60 35 L82 58 L60 82 L38 58 Z" fill="rgba(139, 92, 246, 0.12)" stroke="url(#prismGrad)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
+
+  <!-- Interconnecting Beams -->
+  <line x1="60" y1="22" x2="60" y2="35" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" />
+  <line x1="94" y1="48" x2="82" y2="58" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" />
+  <line x1="82" y1="92" x2="60" y2="82" stroke="#8b5cf6" stroke-width="2" stroke-linecap="round" />
+  <line x1="38" y1="92" x2="60" y2="82" stroke="#8b5cf6" stroke-width="2" stroke-linecap="round" />
+  <line x1="26" y1="48" x2="38" y2="58" stroke="#06b6d4" stroke-width="2" stroke-linecap="round" />
+
+  <!-- Central Luminous Innovation Spark -->
+  <polygon points="60,44 64,56 76,60 64,64 60,76 56,64 44,60 56,56" fill="url(#sparkGrad)" filter="url(#neonGlow)" />
+
+  <!-- Nodes (Glowing Orbital Spheres) -->
+  <circle cx="60" cy="22" r="3.5" fill="#38bdf8" filter="url(#neonGlow)" />
+  <circle cx="94" cy="48" r="3.5" fill="#a78bfa" filter="url(#neonGlow)" />
+  <circle cx="82" cy="92" r="3.5" fill="#8b5cf6" filter="url(#neonGlow)" />
+  <circle cx="38" cy="92" r="3.5" fill="#06b6d4" filter="url(#neonGlow)" />
+  <circle cx="26" cy="48" r="3.5" fill="#38bdf8" filter="url(#neonGlow)" />
+
+  <!-- Core Center Dot -->
+  <circle cx="60" cy="60" r="2.5" fill="#ffffff" />
+</svg>

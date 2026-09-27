@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: novamind
+    env: python
+    buildCommand: "pip install -r requirements.txt || pip install fastapi 'uvicorn[standard]' pydantic pydantic-settings pyjwt bcrypt httpx aiofiles pillow google-genai supabase"
+    startCommand: "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+    envVars:
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_KEY
+        sync: false

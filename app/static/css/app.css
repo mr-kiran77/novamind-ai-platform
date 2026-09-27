@@ -1,0 +1,118 @@
+/* ===================================================
+   NOVAMIND - Modern Futuristic Cybernetic Theme
+   =================================================== */
+
+:root {
+  --bg-dark: #0a0b10;
+  --bg-card: rgba(18, 20, 32, 0.75);
+  --bg-card-hover: rgba(26, 30, 48, 0.85);
+  --border-glass: rgba(255, 255, 255, 0.08);
+  --border-glow: rgba(139, 92, 246, 0.3);
+  --accent-purple: #8b5cf6;
+  --accent-cyan: #06b6d4;
+  --accent-emerald: #10b981;
+  --accent-amber: #f59e0b;
+  --accent-rose: #f43f5e;
+  --text-main: #f3f4f6;
+  --text-muted: #9ca3af;
+}
+
+body {
+  background-color: var(--bg-dark);
+  color: var(--text-main);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background-image: 
+    radial-gradient(at 15% 15%, rgba(139, 92, 246, 0.08) 0px, transparent 50%),
+    radial-gradient(at 85% 85%, rgba(6, 182, 212, 0.08) 0px, transparent 50%);
+  background-attachment: fixed;
+  min-height: 100vh;
+}
+
+/* Glassmorphism Cards */
+.glass-panel {
+  background: var(--bg-card);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border-glass);
+  border-radius: 1rem;
+}
+
+.glass-panel-hover:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--border-glow);
+  box-shadow: 0 8px 30px rgba(139, 92, 246, 0.12);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Gradients */
+.gradient-text {
+  background: linear-gradient(135deg, #a78bfa 0%, #38bdf8 50%, #4ade80 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.gradient-btn {
+  background: linear-gradient(135deg, #8b5cf6 0%, #06b6d4 100%);
+  transition: all 0.2s ease;
+}
+
+.gradient-btn:hover {
+  filter: brightness(1.15);
+  box-shadow: 0 0 20px rgba(139, 92, 246, 0.4);
+  transform: translateY(-1px);
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(10, 11, 16, 0.5);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-purple);
+}
+
+/* Idea Journey Stepper */
+.journey-step {
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+.journey-step.active .step-node {
+  background: var(--accent-purple);
+  box-shadow: 0 0 16px var(--accent-purple);
+  color: white;
+}
+
+.journey-step.completed .step-node {
+  background: var(--accent-emerald);
+  color: white;
+}
+
+/* Floating AI Assistant Orb */
+.ai-assistant-orb {
+  animation: floatOrb 4s ease-in-out infinite;
+  box-shadow: 0 0 25px rgba(139, 92, 246, 0.5), inset 0 0 15px rgba(6, 182, 212, 0.6);
+}
+
+@keyframes floatOrb {
+  0% { transform: translateY(0px) scale(1); }
+  50% { transform: translateY(-8px) scale(1.03); }
+  100% { transform: translateY(0px) scale(1); }
+}
+
+/* Audio Waveform Canvas */
+.waveform-bar {
+  animation: wavePulse 1s ease-in-out infinite alternate;
+}
+
+@keyframes wavePulse {
+  0% { height: 10%; }
+  100% { height: 90%; }
+}
