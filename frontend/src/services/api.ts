@@ -132,10 +132,10 @@ export const api = {
   },
 
   // Nova AI Chat
-  chatWithNova(message: string, context_idea_id?: string) {
-    return this.request<{ reply: string }>('/api/assistant/chat', {
+  chatWithNova(message: string, context_idea_id?: string, history?: any[]) {
+    return this.request<{ reply: string; model_used?: string; context_used?: boolean }>('/api/assistant/chat', {
       method: 'POST',
-      body: JSON.stringify({ message, context_idea_id }),
+      body: JSON.stringify({ message, context_idea_id, history }),
     });
   },
 

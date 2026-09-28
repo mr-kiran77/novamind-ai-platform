@@ -14,6 +14,7 @@ interface Message {
   sender: 'user' | 'nova';
   text: string;
   timestamp: string;
+  model_used?: string;
 }
 
 export const NovaDrawer: React.FC<NovaDrawerProps> = ({
@@ -25,8 +26,9 @@ export const NovaDrawer: React.FC<NovaDrawerProps> = ({
     {
       id: 'welcome',
       sender: 'nova',
-      text: "👋 Hi! I'm Nova, your AI Innovation Mentor and System Architect powered by Gemini 3.8 Flash. How can I help develop your ideas today?",
+      text: "👋 Hi! I'm Nova, your AI Innovation Mentor and System Architect powered by Google Gemini. How can I help develop your ideas today?",
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      model_used: 'gemini-3.5-flash',
     },
   ]);
   const [input, setInput] = useState('');
@@ -77,7 +79,9 @@ export const NovaDrawer: React.FC<NovaDrawerProps> = ({
     setIsLoading(true);
 
     try {
-      const response = await api.chatWithNova(userMsg.text, activeIdea?.id);
+      // Provide conversation history so Nova understands contextual follow-ups
+      const historyPayload = messages.map(m => ({ sender: m.sender, text: m.text }));
+      const response = await api.chatWithNova(userMsg.text, activeIdea?.id, historyPayload);
       const novaReply = response.reply || "I analyzed your question, but received an empty response. Let's try rephrasing!";
       
       const novaMsg: Message = {
@@ -85,6 +89,7 @@ export const NovaDrawer: React.FC<NovaDrawerProps> = ({
         sender: 'nova',
         text: novaReply,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        model_used: response.model_used,
       };
 
       setMessages(prev => [...prev, novaMsg]);
@@ -191,8 +196,13 @@ export const NovaDrawer: React.FC<NovaDrawerProps> = ({
               }`}
             >
               <div className="whitespace-pre-wrap">{m.text}</div>
-              <div className={`text-[9px] ${m.sender === 'user' ? 'text-purple-200' : 'text-gray-500'} text-right`}>
-                {m.timestamp}
+              <div className={`text-[9px] flex items-center justify-between gap-2 pt-1 ${m.sender === 'user' ? 'text-purple-200' : 'text-gray-500'}`}>
+                {m.model_used ? (
+                  <span className="text-[8px] bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 px-1.5 py-0.5 rounded font-mono">
+                    ✨ {m.model_used}
+                  </span>
+                ) : <span />}
+                <span className="ml-auto">{m.timestamp}</span>
               </div>
             </div>
           </div>
@@ -205,7 +215,7 @@ export const NovaDrawer: React.FC<NovaDrawerProps> = ({
             </div>
             <div className="bg-white/5 border border-white/10 rounded-2xl rounded-tl-none p-3 text-xs text-gray-300 flex items-center gap-2">
               <Loader2 className="w-3.5 h-3.5 animate-spin text-cyan-400" />
-              <span>Nova is synthesizing architecture &amp; feasibility insights...</span>
+              <span>Nova is synthesizing architecture &amp; feasibility insights via Gemini...</span>
             </div>
           </div>
         )}
@@ -222,7 +232,8 @@ export const NovaDrawer: React.FC<NovaDrawerProps> = ({
             <button
               key={idx}
               onClick={() => handleSend(prompt)}
-              className="text-[10px] bg-white/5 hover:bg-purple-500/20 border border-white/10 hover:border-purple-500/40 text-gray-300 hover:text-purple-200 px-2.5 py-1 rounded-lg transition-colors text-left"
+              disabled={isLoading}
+              className="text-[10px] bg-white/5 hover:bg-purple-500/20 border border-white/10 hover:border-purple-500/40 text-gray-300 hover:text-purple-200 px-2.5 py-1 rounded-lg transition-colors text-left disabled:opacity-50"
             >
               {prompt}
             </button>
@@ -243,8 +254,9 @@ export const NovaDrawer: React.FC<NovaDrawerProps> = ({
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Ask Nova anything about your idea or project..."
-            className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-purple-500"
+            disabled={isLoading}
+            placeholder={isLoading ? "Nova is thinking via Gemini..." : "Ask Nova anything about your idea or project..."}
+            className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 disabled:opacity-50"
           />
           <button
             type="submit"
