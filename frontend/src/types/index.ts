@@ -71,6 +71,7 @@ export interface Idea {
   collab_count: number;
   save_count?: number;
   share_count?: number;
+  view_count?: number;
   is_liked?: boolean;
   is_saved?: boolean;
   is_following_author?: boolean;

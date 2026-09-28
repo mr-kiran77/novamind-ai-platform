@@ -15,6 +15,8 @@ import { CaptureModal } from './components/CaptureModal';
 import { NovaDrawer } from './components/NovaDrawer';
 import { IdeaJourneyModal } from './components/IdeaJourneyModal';
 import { ShareModal } from './components/ShareModal';
+import { DiscoverView } from './components/DiscoverView';
+import { ModerationView } from './components/ModerationView';
 import { api } from './services/api';
 import type { Idea, User } from './types';
 
@@ -31,7 +33,7 @@ const CATEGORIES = [
 ];
 
 export function App() {
-  const [currentTab, setCurrentTab] = useState<'feed' | 'trending' | 'admin'>('feed');
+  const [currentTab, setCurrentTab] = useState<'feed' | 'discover' | 'trending' | 'moderation' | 'admin'>('feed');
   const [ideas, setIdeas] = useState<Idea[]>([]);
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [onlySaved, setOnlySaved] = useState(false);
@@ -231,180 +233,222 @@ export function App() {
 
       {/* Main Container */}
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 lg:px-8 py-6 space-y-6">
-        {/* HERO BANNER */}
-        <section className="relative overflow-hidden rounded-3xl p-6 sm:p-8 bg-gradient-to-r from-purple-950/60 via-[#101226]/80 to-cyan-950/40 border border-purple-500/20 shadow-2xl">
-          <div className="relative z-10 max-w-2xl space-y-3">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/30 text-[11px] font-semibold text-purple-300">
-              <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
-              <span>SHIP TO BUILD WITH AI • Production Platform</span>
-            </div>
+        {/* 1. DISCOVER VIEW */}
+        {currentTab === 'discover' && (
+          <DiscoverView
+            onLike={handleLike}
+            onComment={(ideaToComment) => setSelectedIdeaForJourney(ideaToComment)}
+            onShare={(ideaToShare) => setSelectedIdeaForShare(ideaToShare)}
+            onSave={handleSave}
+            onFollow={handleFollow}
+            onCollaborate={(ideaToCollab) => setSelectedIdeaForCollab(ideaToCollab)}
+            onViewDetail={(ideaToView) => setSelectedIdeaForJourney(ideaToView)}
+            allIdeas={ideas}
+          />
+        )}
 
-            <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight text-white leading-tight">
-              Turn Messy Ideas into{' '}
-              <span className="bg-gradient-to-r from-purple-400 via-pink-400 to-cyan-300 bg-clip-text text-transparent">
-                Executable Blueprints
-              </span>
-            </h1>
+        {/* 2. MODERATION VIEW */}
+        {currentTab === 'moderation' && (
+          <ModerationView
+            currentUser={currentUser}
+            onSwitchRole={handleRoleSwitch}
+            onShowToast={showToast}
+          />
+        )}
 
-            <p className="text-xs sm:text-sm text-gray-300 leading-relaxed">
-              Capture napkin thoughts, voice memos, and raw concepts. Our 50-agent Gemini swarm transforms them into 22-field execution models with verified talent recruitment and government grant matching.
-            </p>
+        {/* 3. FEED / TRENDING VIEW */}
+        {(currentTab === 'feed' || currentTab === 'trending') && (
+          <>
+            {/* HERO BANNER */}
+            <section className="relative overflow-hidden rounded-3xl p-6 sm:p-8 bg-gradient-to-r from-purple-950/60 via-[#101226]/80 to-cyan-950/40 border border-purple-500/20 shadow-2xl">
+              <div className="relative z-10 max-w-2xl space-y-3">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/30 text-[11px] font-semibold text-purple-300">
+                  <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>{currentTab === 'trending' ? '🔥 Trending Innovation Radar • Live Velocity Scoring' : 'SHIP TO BUILD WITH AI • Production Platform'}</span>
+                </div>
 
-            <div className="flex items-center gap-3 pt-2 flex-wrap">
-              <button
-                onClick={() => setIsCaptureOpen(true)}
-                className="gradient-btn text-white px-5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 shadow-lg shadow-purple-500/30 hover:scale-105 transition-transform"
-              >
-                <Sparkles className="w-4 h-4" />
-                <span>Capture Your Idea</span>
-              </button>
-              <button
-                onClick={() => setIsNovaOpen(true)}
-                className="bg-white/5 hover:bg-white/10 text-white border border-white/10 px-4 py-2.5 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all"
-              >
-                <Bot className="w-4 h-4 text-cyan-400" />
-                <span>Chat with Nova Mentor</span>
-              </button>
-            </div>
-          </div>
+                <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight text-white leading-tight">
+                  {currentTab === 'trending' ? (
+                    <>
+                      Breakthroughs With{' '}
+                      <span className="bg-gradient-to-r from-amber-400 via-orange-400 to-pink-400 bg-clip-text text-transparent">
+                        Highest Momentum
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      Turn Messy Ideas into{' '}
+                      <span className="bg-gradient-to-r from-purple-400 via-pink-400 to-cyan-300 bg-clip-text text-transparent">
+                        Executable Blueprints
+                      </span>
+                    </>
+                  )}
+                </h1>
 
-          {/* Quick Metrics Bar */}
-          <div className="mt-6 pt-6 border-t border-white/10 grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
-            <div className="p-2.5 rounded-xl bg-white/[0.02] border border-white/5">
-              <div className="text-xl font-black text-purple-300">{ideas.length || 12}</div>
-              <div className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold">Live Blueprints</div>
-            </div>
-            <div className="p-2.5 rounded-xl bg-white/[0.02] border border-white/5">
-              <div className="text-xl font-black text-cyan-300">50</div>
-              <div className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold">Active AI Agents</div>
-            </div>
-            <div className="p-2.5 rounded-xl bg-white/[0.02] border border-white/5">
-              <div className="text-xl font-black text-pink-300">7-Stage</div>
-              <div className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold">Idea Pipeline</div>
-            </div>
-            <div className="p-2.5 rounded-xl bg-white/[0.02] border border-white/5">
-              <div className="text-xl font-black text-amber-300">100%</div>
-              <div className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold">Privacy-First</div>
-            </div>
-          </div>
-        </section>
+                <p className="text-xs sm:text-sm text-gray-300 leading-relaxed">
+                  {currentTab === 'trending'
+                    ? 'Explore innovation blueprints ranked by live velocity: constructive discussions, genuine collaborator applications, and verified community votes.'
+                    : 'Capture napkin thoughts, voice memos, and raw concepts. Our 50-agent Gemini swarm transforms them into 22-field execution models with verified talent recruitment and government grant matching.'}
+                </p>
 
-        {/* FEED / EXPLORE VIEW */}
-        {currentTab !== 'admin' && (
-          <section className="space-y-4">
-            {/* Search & Categories Bar */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-              {/* Category Pills & Saved Filter */}
-              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
-                {CATEGORIES.map(cat => (
+                <div className="flex items-center gap-3 pt-2 flex-wrap">
                   <button
-                    key={cat}
-                    onClick={() => {
-                      setSelectedCategory(cat);
-                      setOnlySaved(false);
-                    }}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
-                      selectedCategory === cat && !onlySaved
-                        ? 'gradient-btn text-white shadow-md shadow-purple-500/20'
+                    onClick={() => setIsCaptureOpen(true)}
+                    className="gradient-btn text-white px-5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 shadow-lg shadow-purple-500/30 hover:scale-105 transition-transform"
+                  >
+                    <Sparkles className="w-4 h-4" />
+                    <span>Capture Your Idea</span>
+                  </button>
+                  <button
+                    onClick={() => setIsNovaOpen(true)}
+                    className="bg-white/5 hover:bg-white/10 text-white border border-white/10 px-4 py-2.5 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all"
+                  >
+                    <Bot className="w-4 h-4 text-cyan-400" />
+                    <span>Chat with Nova Mentor</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Quick Metrics Bar */}
+              <div className="mt-6 pt-6 border-t border-white/10 grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
+                <div className="p-2.5 rounded-xl bg-white/[0.02] border border-white/5">
+                  <div className="text-xl font-black text-purple-300">{ideas.length || 12}</div>
+                  <div className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold">Live Blueprints</div>
+                </div>
+                <div className="p-2.5 rounded-xl bg-white/[0.02] border border-white/5">
+                  <div className="text-xl font-black text-cyan-300">50</div>
+                  <div className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold">Active AI Agents</div>
+                </div>
+                <div className="p-2.5 rounded-xl bg-white/[0.02] border border-white/5">
+                  <div className="text-xl font-black text-pink-300">7-Stage</div>
+                  <div className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold">Idea Pipeline</div>
+                </div>
+                <div className="p-2.5 rounded-xl bg-white/[0.02] border border-white/5">
+                  <div className="text-xl font-black text-amber-300">100%</div>
+                  <div className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold">Privacy-First</div>
+                </div>
+              </div>
+            </section>
+
+            {/* FEED / EXPLORE VIEW */}
+            <section className="space-y-4">
+              {/* Search & Categories Bar */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                {/* Category Pills & Saved Filter */}
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
+                  {CATEGORIES.map(cat => (
+                    <button
+                      key={cat}
+                      onClick={() => {
+                        setSelectedCategory(cat);
+                        setOnlySaved(false);
+                      }}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
+                        selectedCategory === cat && !onlySaved
+                          ? 'gradient-btn text-white shadow-md shadow-purple-500/20'
+                          : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 border border-white/5'
+                      }`}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+
+                  {/* Saved Vault Filter Pill */}
+                  <button
+                    onClick={() => setOnlySaved(!onlySaved)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 ${
+                      onlySaved
+                        ? 'bg-amber-500/30 text-amber-300 border border-amber-500 shadow-md'
                         : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 border border-white/5'
                     }`}
                   >
-                    {cat}
+                    <Bookmark className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Saved Vault</span>
                   </button>
-                ))}
+                </div>
 
-                {/* Saved Vault Filter Pill */}
-                <button
-                  onClick={() => setOnlySaved(!onlySaved)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 ${
-                    onlySaved
-                      ? 'bg-amber-500/30 text-amber-300 border border-amber-500 shadow-md'
-                      : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 border border-white/5'
-                  }`}
-                >
-                  <Bookmark className="w-3.5 h-3.5 text-amber-400" />
-                  <span>Saved Vault</span>
-                </button>
-              </div>
-
-              {/* Search Bar */}
-              <div className="relative min-w-[240px]">
-                <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search blueprints, tech stack..."
-                  className="w-full bg-white/5 border border-white/10 rounded-xl pl-9 pr-3 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-purple-500"
-                />
-              </div>
-            </div>
-
-            {/* Error state */}
-            {error && (
-              <div className="bg-red-950/50 border border-red-500/30 text-red-200 text-xs p-4 rounded-2xl flex items-center justify-between">
-                <span>{error}</span>
-                <button
-                  onClick={() => fetchIdeas(selectedCategory)}
-                  className="px-3 py-1 bg-red-800/40 rounded-lg font-bold hover:bg-red-800/60"
-                >
-                  Retry Connection
-                </button>
-              </div>
-            )}
-
-            {/* Ideas Grid */}
-            {loading ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                {[1, 2, 3, 4, 5, 6].map(i => (
-                  <div
-                    key={i}
-                    className="glass-panel h-64 rounded-2xl p-5 animate-pulse flex flex-col justify-between"
-                  >
-                    <div className="space-y-3">
-                      <div className="w-24 h-4 bg-white/10 rounded-full" />
-                      <div className="w-48 h-6 bg-white/10 rounded-lg" />
-                      <div className="w-full h-16 bg-white/5 rounded-lg" />
-                    </div>
-                    <div className="w-full h-8 bg-white/5 rounded-lg" />
-                  </div>
-                ))}
-              </div>
-            ) : filteredIdeas.length === 0 ? (
-              <div className="glass-panel rounded-2xl p-12 text-center space-y-3 border-dashed border-white/10">
-                <Layers className="w-10 h-10 text-gray-500 mx-auto" />
-                <h3 className="font-bold text-base text-white">No Innovation Blueprints Found</h3>
-                <p className="text-xs text-gray-400 max-w-sm mx-auto">
-                  {onlySaved
-                    ? "You haven't saved any ideas yet. Click the bookmark icon on any idea card to save it to your vault!"
-                    : "Be the first to capture an idea in this domain and let Gemini structure it into a 22-field execution model."}
-                </p>
-                <button
-                  onClick={() => setIsCaptureOpen(true)}
-                  className="gradient-btn text-white px-4 py-2 rounded-xl text-xs font-bold inline-flex items-center gap-2 mt-2"
-                >
-                  <Sparkles className="w-4 h-4" />
-                  <span>Capture New Idea</span>
-                </button>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                {filteredIdeas.map(idea => (
-                  <IdeaCard
-                    key={idea.id}
-                    idea={idea}
-                    onLike={handleLike}
-                    onComment={(ideaToComment) => setSelectedIdeaForJourney(ideaToComment)}
-                    onShare={(ideaToShare) => setSelectedIdeaForShare(ideaToShare)}
-                    onSave={handleSave}
-                    onFollow={handleFollow}
-                    onCollaborate={(ideaToCollab) => setSelectedIdeaForCollab(ideaToCollab)}
-                    onViewDetail={(ideaToView) => setSelectedIdeaForJourney(ideaToView)}
+                {/* Search Bar */}
+                <div className="relative min-w-[240px]">
+                  <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search blueprints, tech stack..."
+                    className="w-full bg-white/5 border border-white/10 rounded-xl pl-9 pr-3 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-purple-500"
                   />
-                ))}
+                </div>
               </div>
-            )}
-          </section>
+
+              {/* Error state */}
+              {error && (
+                <div className="bg-red-950/50 border border-red-500/30 text-red-200 text-xs p-4 rounded-2xl flex items-center justify-between">
+                  <span>{error}</span>
+                  <button
+                    onClick={() => fetchIdeas(selectedCategory)}
+                    className="px-3 py-1 bg-red-800/40 rounded-lg font-bold hover:bg-red-800/60"
+                  >
+                    Retry Connection
+                  </button>
+                </div>
+              )}
+
+              {/* Ideas Grid */}
+              {loading ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                  {[1, 2, 3, 4, 5, 6].map(i => (
+                    <div
+                      key={i}
+                      className="glass-panel h-64 rounded-2xl p-5 animate-pulse flex flex-col justify-between"
+                    >
+                      <div className="space-y-3">
+                        <div className="w-24 h-4 bg-white/10 rounded-full" />
+                        <div className="w-48 h-6 bg-white/10 rounded-lg" />
+                        <div className="w-full h-16 bg-white/5 rounded-lg" />
+                      </div>
+                      <div className="w-full h-8 bg-white/5 rounded-lg" />
+                    </div>
+                  ))}
+                </div>
+              ) : filteredIdeas.length === 0 ? (
+                <div className="glass-panel rounded-2xl p-12 text-center space-y-3 border-dashed border-white/10">
+                  <Layers className="w-10 h-10 text-gray-500 mx-auto" />
+                  <h3 className="font-bold text-base text-white">No Innovation Blueprints Found</h3>
+                  <p className="text-xs text-gray-400 max-w-sm mx-auto">
+                    {onlySaved
+                      ? "You haven't saved any ideas yet. Click the bookmark icon on any idea card to save it to your vault!"
+                      : "Be the first to capture an idea in this domain and let Gemini structure it into a 22-field execution model."}
+                  </p>
+                  <button
+                    onClick={() => setIsCaptureOpen(true)}
+                    className="gradient-btn text-white px-4 py-2 rounded-xl text-xs font-bold inline-flex items-center gap-2 mt-2"
+                  >
+                    <Sparkles className="w-4 h-4" />
+                    <span>Capture New Idea</span>
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                  {(currentTab === 'trending'
+                    ? [...filteredIdeas].sort((a, b) => ((b.reaction_count || 0) * 3 + (b.view_count || 0) + (b.comment_count || 0) * 2) - ((a.reaction_count || 0) * 3 + (a.view_count || 0) + (a.comment_count || 0) * 2))
+                    : filteredIdeas
+                  ).map(idea => (
+                    <IdeaCard
+                      key={idea.id}
+                      idea={idea}
+                      onLike={handleLike}
+                      onComment={(ideaToComment) => setSelectedIdeaForJourney(ideaToComment)}
+                      onShare={(ideaToShare) => setSelectedIdeaForShare(ideaToShare)}
+                      onSave={handleSave}
+                      onFollow={handleFollow}
+                      onCollaborate={(ideaToCollab) => setSelectedIdeaForCollab(ideaToCollab)}
+                      onViewDetail={(ideaToView) => setSelectedIdeaForJourney(ideaToView)}
+                    />
+                  ))}
+                </div>
+              )}
+            </section>
+          </>
         )}
 
         {/* 50-BOT ADMIN PANEL VIEW */}

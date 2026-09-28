@@ -139,6 +139,47 @@ export const api = {
     });
   },
 
+  // Discovery & Semantic Search
+  semanticSearch(query: string, category?: string, stage?: string) {
+    return this.request<{ results: any[]; query: string; count: number }>('/api/discovery/search', {
+      method: 'POST',
+      body: JSON.stringify({ query, category, stage, limit: 12 }),
+    });
+  },
+
+  getCategories() {
+    return this.request<{ categories: { name: string; count: number }[] }>('/api/discovery/categories');
+  },
+
+  // Moderation Operations
+  getModerationQueue() {
+    return this.request<{ pending_reports: any[]; quarantined_ideas: any[] }>('/api/moderation/queue');
+  },
+
+  reviewReport(reportId: string, action: string, notes: string = '') {
+    return this.request<any>(`/api/moderation/review/${reportId}?action=${encodeURIComponent(action)}&notes=${encodeURIComponent(notes)}`, {
+      method: 'POST',
+    });
+  },
+
+  reportContent(targetType: 'idea' | 'comment', targetId: string, reason: string, details?: string) {
+    return this.request<any>('/api/moderation/report', {
+      method: 'POST',
+      body: JSON.stringify({ target_type: targetType, target_id: targetId, reason, details }),
+    });
+  },
+
+  getAppeals() {
+    return this.request<{ appeals: any[] }>('/api/moderation/appeals');
+  },
+
+  reviewAppeal(appealId: string, approved: boolean, notes: string = '') {
+    return this.request<any>(`/api/moderation/appeal/${appealId}/review`, {
+      method: 'POST',
+      body: JSON.stringify({ approved, review_notes: notes }),
+    });
+  },
+
   // Authentication & Demo
   demoSwitch(role: string = 'user') {
     return this.request<any>(`/api/auth/demo-switch?role=${role}`, {

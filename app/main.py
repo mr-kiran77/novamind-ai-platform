@@ -55,6 +55,7 @@ app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
 react_dist_dir = Path(__file__).resolve().parent.parent / "frontend" / "dist"
 if react_dist_dir.exists():
+    app.mount("/assets", StaticFiles(directory=str(react_dist_dir / "assets")), name="react_assets")
     app.mount("/app", StaticFiles(directory=str(react_dist_dir), html=True), name="react_app")
 
 # Include Routers
@@ -102,8 +103,25 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str):
 @app.get("/")
 def serve_index():
     """Serves the primary Single-Page Application interface."""
+    if react_dist_dir.exists() and (react_dist_dir / "index.html").exists():
+        return FileResponse(react_dist_dir / "index.html")
     index_file = static_dir / "index.html"
     return FileResponse(index_file)
+
+@app.get("/favicon.svg")
+def serve_favicon():
+    fav = react_dist_dir / "favicon.svg"
+    if fav.exists():
+        return FileResponse(fav)
+    vanilla_fav = static_dir / "favicon.svg"
+    if vanilla_fav.exists():
+        return FileResponse(vanilla_fav)
+    return JSONResponse(status_code=404, content={"detail": "Favicon not found"})
+
+@app.get("/vanilla")
+def serve_vanilla():
+    """Legacy vanilla JS UI fallback."""
+    return FileResponse(static_dir / "index.html")
 
 @app.get("/api/health")
 def health_check():

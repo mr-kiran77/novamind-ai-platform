@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sparkles, Bot, Settings, Flame } from 'lucide-react';
+import { Sparkles, Bot, Settings, Flame, Compass, Shield } from 'lucide-react';
 
 interface NavbarProps {
   currentTab: string;
@@ -46,7 +46,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         <nav className="hidden md:flex items-center gap-1 bg-white/5 border border-white/10 rounded-2xl p-1">
           <button
             onClick={() => setCurrentTab('feed')}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+            className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
               currentTab === 'feed'
                 ? 'text-purple-300 bg-white/10 shadow'
                 : 'text-gray-400 hover:text-white'
@@ -55,10 +55,21 @@ export const Navbar: React.FC<NavbarProps> = ({
             🌟 Feed
           </button>
           <button
+            onClick={() => setCurrentTab('discover')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 ${
+              currentTab === 'discover'
+                ? 'text-cyan-300 bg-white/10 shadow'
+                : 'text-gray-400 hover:text-white'
+            }`}
+          >
+            <Compass className="w-3.5 h-3.5 text-cyan-400" />
+            Discover
+          </button>
+          <button
             onClick={() => setCurrentTab('trending')}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1 ${
+            className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 ${
               currentTab === 'trending'
-                ? 'text-purple-300 bg-white/10 shadow'
+                ? 'text-amber-300 bg-white/10 shadow'
                 : 'text-gray-400 hover:text-white'
             }`}
           >
@@ -66,14 +77,25 @@ export const Navbar: React.FC<NavbarProps> = ({
             Trending
           </button>
           <button
-            onClick={() => setCurrentTab('admin')}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1 ${
-              currentTab === 'admin'
-                ? 'text-cyan-300 bg-white/10 shadow'
+            onClick={() => setCurrentTab('moderation')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 ${
+              currentTab === 'moderation'
+                ? 'text-amber-300 bg-white/10 shadow'
                 : 'text-gray-400 hover:text-white'
             }`}
           >
-            <Settings className="w-3.5 h-3.5 text-cyan-400" />
+            <Shield className="w-3.5 h-3.5 text-amber-400" />
+            Moderation
+          </button>
+          <button
+            onClick={() => setCurrentTab('admin')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 ${
+              currentTab === 'admin'
+                ? 'text-purple-300 bg-white/10 shadow'
+                : 'text-gray-400 hover:text-white'
+            }`}
+          >
+            <Settings className="w-3.5 h-3.5 text-purple-400" />
             50-Bot Admin
           </button>
         </nav>

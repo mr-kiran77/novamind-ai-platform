@@ -18,6 +18,14 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Process-level crash prevention
+process.on('uncaughtException', (err) => {
+  console.error('[Gateway Uncaught Exception]', err.message);
+});
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[Gateway Unhandled Rejection]', reason);
+});
+
 const app = express();
 const PORT = process.env.GATEWAY_PORT || 5000;
 const FASTAPI_URL = process.env.FASTAPI_URL || 'http://127.0.0.1:8000';
