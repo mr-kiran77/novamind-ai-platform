@@ -172,7 +172,7 @@ def get_ideas_feed(
         rows = cursor.fetchall()
 
     items = []
-    user_id = current_user["id"] if current_user else None
+    user_id = current_user.get("id") if (current_user and isinstance(current_user, dict)) else None
     
     with get_db() as conn:
         cursor = conn.cursor()
@@ -183,17 +183,55 @@ def get_ideas_feed(
             d["structured_data"] = json.loads(d.get("structured_data") or "{}")
             del d["embedding"]  # Omit large vector from feed list
 
-            # User reaction status
+            # User reaction status & following
             user_reactions = []
             is_saved = False
+            is_following = False
             if user_id:
                 cursor.execute("SELECT reaction_type FROM reactions WHERE idea_id = ? AND user_id = ?", (d["id"], user_id))
                 user_reactions = [row["reaction_type"] for row in cursor.fetchall()]
                 cursor.execute("SELECT 1 FROM saved_ideas WHERE idea_id = ? AND user_id = ?", (d["id"], user_id))
                 is_saved = bool(cursor.fetchone())
+                cursor.execute("SELECT 1 FROM follows WHERE follower_id = ? AND following_id = ?", (user_id, d["user_id"]))
+                is_following = bool(cursor.fetchone())
 
             d["user_reactions"] = user_reactions
+            d["is_liked"] = "like" in user_reactions
             d["is_saved"] = is_saved
+            d["is_following_author"] = is_following
+
+            # Check for attached community poll
+            cursor.execute("SELECT * FROM polls WHERE idea_id = ?", (d["id"],))
+            p_row = cursor.fetchone()
+            if p_row:
+                p_dict = dict(p_row)
+                p_opts = json.loads(p_dict.get("options") or "[]")
+                cursor.execute("SELECT option_index, COUNT(*) as vote_count FROM poll_votes WHERE poll_id = ? GROUP BY option_index", (p_dict["id"],))
+                v_counts = {r["option_index"]: r["vote_count"] for r in cursor.fetchall()}
+                tot_v = sum(v_counts.values())
+                u_vote = None
+                if user_id:
+                    cursor.execute("SELECT option_index FROM poll_votes WHERE poll_id = ? AND user_id = ?", (p_dict["id"], user_id))
+                    uv = cursor.fetchone()
+                    if uv:
+                        u_vote = uv["option_index"]
+                formatted_opts = []
+                for idx, opt_text in enumerate(p_opts):
+                    cnt = v_counts.get(idx, 0)
+                    pct = round((cnt / tot_v * 100), 1) if tot_v > 0 else 0.0
+                    formatted_opts.append({"index": idx, "text": opt_text, "vote_count": cnt, "percentage": pct})
+                d["poll"] = {
+                    "id": p_dict["id"],
+                    "idea_id": p_dict["idea_id"],
+                    "question": p_dict["question"],
+                    "options": formatted_opts,
+                    "total_votes": tot_v,
+                    "user_voted_option": u_vote,
+                    "created_at": p_dict["created_at"]
+                }
+            else:
+                d["poll"] = None
+
             items.append(d)
 
     return {"ideas": items, "count": len(items)}
@@ -234,26 +272,77 @@ def get_idea_detail(idea_id: str, current_user: Optional[Dict[str, Any]] = Depen
         reaction_breakdown = {r["reaction_type"]: r["count"] for r in cursor.fetchall()}
         idea["reaction_breakdown"] = reaction_breakdown
 
-        # Fetch collaborators
+        # Fetch all collaboration proposals (for AI screening & management)
         cursor.execute("""
-        SELECT c.*, u.username, u.display_name, u.avatar_url
+        SELECT c.*, u.username, u.display_name, u.avatar_url, u.skills
         FROM collaborations c
         JOIN users u ON c.requester_id = u.id
-        WHERE c.idea_id = ? AND c.status = 'accepted'
+        WHERE c.idea_id = ?
+        ORDER BY c.created_at DESC
         """, (idea_id,))
-        idea["collaborators"] = [dict(c) for c in cursor.fetchall()]
+        all_collabs = [dict(c) for c in cursor.fetchall()]
+        idea["collaborations"] = all_collabs
+        idea["collaborators"] = [c for c in all_collabs if c.get("status") == "accepted"]
+
+        # Fetch comments
+        cursor.execute("""
+        SELECT c.*, u.username, u.display_name, u.avatar_url
+        FROM comments c
+        JOIN users u ON c.user_id = u.id
+        WHERE c.idea_id = ?
+        ORDER BY c.created_at ASC
+        """, (idea_id,))
+        idea["comments"] = [dict(c) for c in cursor.fetchall()]
+
+        # Check for attached community poll
+        cursor.execute("SELECT * FROM polls WHERE idea_id = ?", (idea_id,))
+        p_row = cursor.fetchone()
+        if p_row:
+            p_dict = dict(p_row)
+            p_opts = json.loads(p_dict.get("options") or "[]")
+            cursor.execute("SELECT option_index, COUNT(*) as vote_count FROM poll_votes WHERE poll_id = ? GROUP BY option_index", (p_dict["id"],))
+            v_counts = {r["option_index"]: r["vote_count"] for r in cursor.fetchall()}
+            tot_v = sum(v_counts.values())
+            u_vote = None
+            if current_user and isinstance(current_user, dict):
+                cursor.execute("SELECT option_index FROM poll_votes WHERE poll_id = ? AND user_id = ?", (p_dict["id"], current_user.get("id")))
+                uv = cursor.fetchone()
+                if uv:
+                    u_vote = uv["option_index"]
+            formatted_opts = []
+            for idx, opt_text in enumerate(p_opts):
+                cnt = v_counts.get(idx, 0)
+                pct = round((cnt / tot_v * 100), 1) if tot_v > 0 else 0.0
+                formatted_opts.append({"index": idx, "text": opt_text, "vote_count": cnt, "percentage": pct})
+            idea["poll"] = {
+                "id": p_dict["id"],
+                "idea_id": p_dict["idea_id"],
+                "question": p_dict["question"],
+                "options": formatted_opts,
+                "total_votes": tot_v,
+                "user_voted_option": u_vote,
+                "created_at": p_dict["created_at"]
+            }
+        else:
+            idea["poll"] = None
 
         # User specific state
         user_reactions = []
         is_saved = False
-        if current_user:
-            cursor.execute("SELECT reaction_type FROM reactions WHERE idea_id = ? AND user_id = ?", (idea_id, current_user["id"]))
+        is_following = False
+        if current_user and isinstance(current_user, dict):
+            u_id = current_user.get("id")
+            cursor.execute("SELECT reaction_type FROM reactions WHERE idea_id = ? AND user_id = ?", (idea_id, u_id))
             user_reactions = [r["reaction_type"] for r in cursor.fetchall()]
-            cursor.execute("SELECT 1 FROM saved_ideas WHERE idea_id = ? AND user_id = ?", (idea_id, current_user["id"]))
+            cursor.execute("SELECT 1 FROM saved_ideas WHERE idea_id = ? AND user_id = ?", (idea_id, u_id))
             is_saved = bool(cursor.fetchone())
+            cursor.execute("SELECT 1 FROM follows WHERE follower_id = ? AND following_id = ?", (u_id, idea["user_id"]))
+            is_following = bool(cursor.fetchone())
 
         idea["user_reactions"] = user_reactions
+        idea["is_liked"] = "like" in user_reactions
         idea["is_saved"] = is_saved
+        idea["is_following_author"] = is_following
 
     return idea
 

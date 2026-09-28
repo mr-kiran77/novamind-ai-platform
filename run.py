@@ -12,7 +12,7 @@ def main():
     print(f"📍 Local Server: http://{settings.HOST}:{settings.PORT}")
     print(f"🎯 Default Demo Login: +19876543210 (Code: 123456)")
     print(f"==================================================")
-    uvicorn.run("app.main:app", host=settings.HOST, port=settings.PORT, reload=True)
+    uvicorn.run("app.main:app", host=settings.HOST, port=settings.PORT, reload=False)
 
 if __name__ == "__main__":
     main()

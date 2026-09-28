@@ -215,14 +215,17 @@ async def screen_collaborations_with_ai(idea_id: str, optional_user: Optional[Di
             tech_keywords = ["built", "code", "github", "prototype", "lab", "dataset", "pytorch", "fastapi", "hardware", "research", "materials", "patent", "model", "develop", "api"]
             matches = [k for k in tech_keywords if k in msg.lower()]
 
-            if word_count < 6 or msg.lower() in ["hi", "cool idea", "i want to collaborate", "contact me", "nice", "let's talk"]:
+            spam_triggers = ["cool idea", "let's collab", "collab", "make money", "hit me up", "dm me", "call me", "whatsapp me", "interested"]
+            has_spam = any(s in msg.lower() for s in spam_triggers)
+
+            if (word_count < 12 and (not matches or has_spam)) or word_count < 6:
                 score = 25
                 classification = "low_effort_time_pass"
-                rationale = "⚠️ Flagged as Low Effort: Message lacks concrete technical details, past project proof, or specific deliverables."
-            elif matches or word_count > 25:
+                rationale = "⚠️ Flagged as Low Effort (Time-Pass): Message lacks concrete technical details, past project proof, or specific deliverables."
+            elif (matches and word_count >= 15) or word_count > 30:
                 score = min(98, 70 + len(matches) * 8 + min(15, word_count // 3))
                 classification = "genuine_serious"
-                rationale = f"✨ High Priority: Candidate offers specific tangible assets ({', '.join(matches[:3]) if matches else 'detailed implementation plan'})."
+                rationale = f"✨ High Priority (Genuine): Candidate offers specific tangible assets ({', '.join(matches[:3]) if matches else 'detailed implementation plan'})."
             else:
                 score = 65
                 classification = "moderate"

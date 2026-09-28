@@ -80,9 +80,8 @@ app.get('/api/gateway/status', async (req, res) => {
   });
 });
 
-// Proxy API requests to Python FastAPI AI Engine without stripping '/api'
-app.use(createProxyMiddleware({
-  filter: (pathname) => pathname.startsWith('/api') || pathname.startsWith('/ws'),
+// Create Proxy to Python FastAPI AI Engine
+const apiProxy = createProxyMiddleware({
   target: FASTAPI_URL,
   changeOrigin: true,
   ws: true,
@@ -101,7 +100,15 @@ app.use(createProxyMiddleware({
       }
     }
   }
-}));
+});
+
+// Route only /api/* and /ws/* through the proxy (preserving full path)
+app.use((req, res, next) => {
+  if (req.path.startsWith('/api') || req.path.startsWith('/ws')) {
+    return apiProxy(req, res, next);
+  }
+  next();
+});
 
 // Serve Built React SPA from frontend/dist
 const distPath = path.resolve(__dirname, '../frontend/dist');

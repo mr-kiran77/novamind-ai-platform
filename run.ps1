@@ -3,8 +3,8 @@ if (-not (Test-Path $pyExe)) {
     $pyExe = "$env:APPDATA\uv\python\cpython-3.12-windows-x86_64-none\python.exe"
 }
 
-$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-if (-not $scriptDir) { $scriptDir = "C:\Users\USER\.gemini\antigravity\scratch\novamind" }
+$scriptDir = $PSScriptRoot
+if (-not $scriptDir) { $scriptDir = "c:\Users\USER\Downloads\antygravity ai" }
 
 $env:PYTHONPATH = "$scriptDir\.venv\Lib\site-packages;$scriptDir"
 
