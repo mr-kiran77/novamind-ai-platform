@@ -242,26 +242,51 @@ const IdeaDetail = {
 
     try {
       const res = await API.get(`/api/ideas/${ideaId}/comments`);
-      countBadge.innerText = res.total_count;
+      if (countBadge) countBadge.innerText = res.total_count || 0;
 
-      if (!res.comments.length) {
-        stream.innerHTML = `<div class="text-center py-6 text-xs text-gray-500">No discussions yet. Share constructive insights or ask a question!</div>`;
+      if (!res.comments || !res.comments.length) {
+        stream.innerHTML = `<div class="text-center py-6 text-xs text-gray-500">No discussions yet. Any User can share constructive insights with the Poster!</div>`;
         return;
       }
 
-      stream.innerHTML = res.comments.map(c => `
-        <div class="p-4 bg-white/[0.03] border border-white/10 rounded-xl space-y-2">
-          <div class="flex items-center justify-between">
+      const posterId = this.currentIdea?.user_id;
+      const posterUsername = this.currentIdea?.username;
+      const currentUser = Auth.currentUser;
+
+      stream.innerHTML = res.comments.map(c => {
+        const isPoster = c.user_id === posterId || c.username === posterUsername;
+        const isMe = currentUser && (c.username === currentUser.username || c.user_id === currentUser.id);
+
+        return `
+        <div class="p-4 rounded-xl space-y-2 border transition-all ${
+          isPoster ? 'bg-amber-950/20 border-amber-500/40 shadow-sm' : 'bg-white/[0.03] border-white/10'
+        }">
+          <div class="flex items-center justify-between flex-wrap gap-2">
             <div class="flex items-center gap-2">
               <img src="${c.avatar_url || 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150'}" class="w-6 h-6 rounded-lg object-cover">
-              <span class="text-xs font-bold text-white">${c.display_name}</span>
-              <span class="text-[10px] text-gray-500">@${c.username}</span>
+              <span class="text-xs font-bold text-white">${c.display_name || c.username}</span>
+              <span class="text-[10px] text-gray-400">@${c.username}</span>
+
+              <!-- Poster vs User Badge -->
+              ${isPoster ? `
+                <span class="text-[9px] bg-amber-500/20 text-amber-300 border border-amber-500/40 px-1.5 py-0.2 rounded font-extrabold">
+                  💡 POSTER
+                </span>
+              ` : `
+                <span class="text-[9px] bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 px-1.5 py-0.2 rounded font-medium">
+                  👤 USER
+                </span>
+              `}
+
+              ${isMe ? `
+                <span class="text-[9px] bg-purple-500/20 text-purple-300 px-1 rounded font-semibold">You</span>
+              ` : ''}
             </div>
             <span class="text-[10px] bg-purple-500/20 text-purple-300 px-2 py-0.5 rounded-full border border-purple-500/30">
               ${c.comment_type.replace('_', ' ').toUpperCase()}
             </span>
           </div>
-          <p class="text-xs text-gray-300 leading-relaxed pl-8">${c.content}</p>
+          <p class="text-xs text-gray-300 leading-relaxed pl-8 whitespace-pre-line">${c.content}</p>
 
           <!-- Nested Replies -->
           ${(c.replies || []).map(r => `
@@ -274,7 +299,8 @@ const IdeaDetail = {
             </div>
           `).join("")}
         </div>
-      `).join("");
+        `;
+      }).join("");
 
     } catch (err) {}
   },
@@ -531,5 +557,26 @@ async function respondToCollaboration(collabId, status) {
     }
   } catch (err) {
     console.error("Failed to update collaboration status:", err);
+  }
+}
+
+async function toggleDetailFollow() {
+  const idea = IdeaDetail.currentIdea;
+  if (!idea) return;
+  const btn = document.getElementById("detail-follow-btn");
+  try {
+    const res = await API.post(`/api/users/${idea.user_id}/follow`, {});
+    API.showToast(res.message || (res.is_following ? "Now following Idea Poster!" : "Unfollowed Idea Poster"), "success");
+    if (btn) {
+      btn.innerText = res.is_following ? "✓ Following Poster" : "+ Follow Poster";
+      btn.className = res.is_following
+        ? "text-xs bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 px-3 py-1.5 rounded-lg transition-colors font-semibold"
+        : "text-xs bg-white/10 hover:bg-white/20 text-white px-3 py-1.5 rounded-lg transition-colors font-medium";
+    }
+    if (window.Feed) {
+      Feed.loadFeed();
+    }
+  } catch (err) {
+    API.showToast(err.message || "Failed to update follow", "error");
   }
 }
