@@ -133,24 +133,6 @@ export const Navbar: React.FC<NavbarProps> = ({
             <span className="btn-keep-white">Capture Idea</span>
           </button>
 
-          {/* Light / Dark Mode Toggle Button (Top Right) */}
-          <button
-            onClick={onToggleTheme}
-            title={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-            className={`p-2 rounded-xl border transition-all flex items-center justify-center ${
-              isDark
-                ? 'bg-white/5 hover:bg-white/10 text-amber-300 border-white/10 hover:border-amber-400/40'
-                : 'bg-slate-100 hover:bg-slate-200 text-indigo-600 border-slate-200 hover:border-indigo-400'
-            }`}
-            aria-label="Toggle Theme"
-          >
-            {isDark ? (
-              <Sun className="w-4 h-4 transition-transform hover:rotate-45" />
-            ) : (
-              <Moon className="w-4 h-4 transition-transform hover:-rotate-12" />
-            )}
-          </button>
-
           {/* Quick Demo Role Selector */}
           <div className="relative group">
             <button
@@ -202,6 +184,27 @@ export const Navbar: React.FC<NavbarProps> = ({
               </button>
             </div>
           </div>
+
+          {/* Light / Dark Mode Toggle Button (Far Top-Right of Navbar) */}
+          <button
+            onClick={onToggleTheme}
+            title={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+            className={`p-2 sm:px-3 sm:py-1.5 rounded-xl border transition-all flex items-center gap-1.5 shadow-sm hover:scale-105 ${
+              isDark
+                ? 'bg-white/10 hover:bg-white/20 text-amber-300 border-white/20 hover:border-amber-400/50'
+                : 'bg-slate-100 hover:bg-slate-200 text-indigo-700 border-slate-300 hover:border-indigo-400'
+            }`}
+            aria-label="Toggle Theme"
+          >
+            {isDark ? (
+              <Sun className="w-4 h-4 text-amber-300 transition-transform hover:rotate-45" />
+            ) : (
+              <Moon className="w-4 h-4 text-indigo-600 transition-transform hover:-rotate-12" />
+            )}
+            <span className="text-xs font-bold hidden sm:inline">
+              {isDark ? 'Light' : 'Dark'}
+            </span>
+          </button>
         </div>
       </div>
     </header>

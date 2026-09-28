@@ -33,7 +33,7 @@
       }
     }
   </script>
-  <link rel="stylesheet" href="/static/css/app.css">
+  <link rel="stylesheet" href="/static/css/app.css?v=20260928v3">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -124,11 +124,6 @@
           </div>
         </div>
 
-        <!-- Light & Dark Mode Toggle Button (Top Right of App) -->
-        <button id="theme-toggle-btn" onclick="toggleTheme()" class="p-2.5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all text-amber-300 flex items-center justify-center" title="Toggle Light / Dark Mode">
-          <span id="theme-toggle-icon" class="text-sm">☀️</span>
-        </button>
-
         <!-- Log In / Switch Account Button -->
         <button onclick="openAuthModal()" class="text-xs bg-white/5 hover:bg-white/10 text-gray-200 border border-white/10 px-3 py-1.5 rounded-xl font-medium flex items-center gap-1.5 transition-colors">
           <span>🔐</span>
@@ -143,6 +138,13 @@
           </div>
         </div>
 
+        <!-- Light & Dark Mode Toggle Button (Placed at Far Top-Right of Navbar) -->
+        <button id="theme-toggle-btn" onclick="toggleTheme()"
+                class="p-2 sm:px-3 sm:py-1.5 rounded-xl bg-white/10 border border-white/20 hover:bg-white/20 transition-all text-amber-300 flex items-center gap-1.5 shadow-md hover:scale-105"
+                title="Toggle Light / Dark Mode">
+          <span id="theme-toggle-icon" class="text-base">☀️</span>
+          <span class="text-xs font-bold hidden sm:inline text-gray-200" id="theme-toggle-text">Light</span>
+        </button>
       </div>
 
     </div>
@@ -1090,20 +1092,20 @@
     </div>
   </div>
 
-  <!-- JavaScript Application Bundle -->
-  <script src="/static/js/api.js"></script>
-  <script src="/static/js/auth.js"></script>
-  <script src="/static/js/feed.js"></script>
-  <script src="/static/js/capture.js"></script>
-  <script src="/static/js/idea-detail.js"></script>
-  <script src="/static/js/trending.js"></script>
-  <script src="/static/js/discovery.js"></script>
-  <script src="/static/js/messaging.js"></script>
-  <script src="/static/js/profile.js"></script>
-  <script src="/static/js/moderation-portal.js"></script>
-  <script src="/static/js/admin-portal.js"></script>
-  <script src="/static/js/assistant.js"></script>
-  <script src="/static/js/voice.js"></script>
-  <script src="/static/js/app.js"></script>
+  <!-- JavaScript Application Bundle (Cache Busted) -->
+  <script src="/static/js/api.js?v=20260928v3"></script>
+  <script src="/static/js/auth.js?v=20260928v3"></script>
+  <script src="/static/js/feed.js?v=20260928v3"></script>
+  <script src="/static/js/capture.js?v=20260928v3"></script>
+  <script src="/static/js/idea-detail.js?v=20260928v3"></script>
+  <script src="/static/js/trending.js?v=20260928v3"></script>
+  <script src="/static/js/discovery.js?v=20260928v3"></script>
+  <script src="/static/js/messaging.js?v=20260928v3"></script>
+  <script src="/static/js/profile.js?v=20260928v3"></script>
+  <script src="/static/js/moderation-portal.js?v=20260928v3"></script>
+  <script src="/static/js/admin-portal.js?v=20260928v3"></script>
+  <script src="/static/js/assistant.js?v=20260928v3"></script>
+  <script src="/static/js/voice.js?v=20260928v3"></script>
+  <script src="/static/js/app.js?v=20260928v3"></script>
 </body>
 </html>

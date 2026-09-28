@@ -49,12 +49,25 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Development no-cache middleware to ensure UI updates are immediately reflected
+@app.middleware("http")
+async def add_no_cache_headers(request: Request, call_next):
+    response = await call_next(request)
+    if request.url.path.startswith("/static") or request.url.path == "/" or request.url.path.startswith("/app"):
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+    return response
+
 # Mount Static Files
 static_dir = Path(__file__).resolve().parent / "static"
 app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
 react_dist_dir = Path(__file__).resolve().parent.parent / "frontend" / "dist"
 if react_dist_dir.exists():
+    react_assets_dir = react_dist_dir / "assets"
+    if react_assets_dir.exists():
+        app.mount("/assets", StaticFiles(directory=str(react_assets_dir)), name="react_assets")
     app.mount("/app", StaticFiles(directory=str(react_dist_dir), html=True), name="react_app")
 
 # Include Routers

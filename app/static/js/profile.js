@@ -147,16 +147,30 @@ const Profile = {
 
   renderPublicProfile(data, container) {
     const p = data.profile;
+    const isCurrentUser = Auth.currentUser && (Auth.currentUser.id === p.id || Auth.currentUser.username === p.username);
     container.innerHTML = `
       <div class="glass-panel p-6 space-y-4">
         <button onclick="navigate('feed')" class="text-xs text-gray-400 hover:text-white mb-2">← Back to Feed</button>
-        <div class="flex items-center gap-4">
-          <img src="${p.avatar_url}" class="w-16 h-16 rounded-2xl object-cover border border-purple-500/40">
-          <div>
-            <h1 class="text-xl font-bold text-white">${p.display_name}</h1>
-            <span class="text-xs text-purple-300">@${p.username}</span>
-            <p class="text-xs text-gray-300 mt-1">${p.bio || ''}</p>
+        <div class="flex items-center justify-between flex-wrap gap-4">
+          <div class="flex items-center gap-4">
+            <img src="${p.avatar_url || 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150'}" class="w-16 h-16 rounded-2xl object-cover border border-purple-500/40">
+            <div>
+              <div class="flex items-center gap-2 flex-wrap">
+                <h1 class="text-xl font-bold text-white">${p.display_name}</h1>
+                <span class="text-xs text-purple-300">@${p.username}</span>
+                <span class="text-[10px] bg-gradient-to-r from-amber-500/30 to-orange-500/30 text-amber-300 border border-amber-500/40 px-2 py-0.5 rounded-full font-extrabold uppercase">
+                  💡 IDEA POSTER
+                </span>
+              </div>
+              <p class="text-xs text-gray-300 mt-1">${p.bio || 'Innovator on Novamind'}</p>
+            </div>
           </div>
+          ${!isCurrentUser ? `
+            <button onclick="toggleFollowPoster('${p.id}', this, event)"
+                    class="text-xs px-4 py-2 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 font-bold transition-all shadow">
+              + Follow Poster
+            </button>
+          ` : ''}
         </div>
       </div>
       <div class="space-y-3">
