@@ -362,6 +362,45 @@ def init_db():
         );
         """)
 
+        # 22. Polls & Community Voting (Instagram-Style)
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS polls (
+            id TEXT PRIMARY KEY,
+            idea_id TEXT NOT NULL,
+            question TEXT NOT NULL,
+            options TEXT NOT NULL, -- JSON array of up to 4 options
+            created_by TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (idea_id) REFERENCES ideas(id) ON DELETE CASCADE,
+            FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE
+        );
+        """)
+
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS poll_votes (
+            id TEXT PRIMARY KEY,
+            poll_id TEXT NOT NULL,
+            user_id TEXT NOT NULL,
+            option_index INTEGER NOT NULL,
+            created_at TEXT NOT NULL,
+            UNIQUE(poll_id, user_id),
+            FOREIGN KEY (poll_id) REFERENCES polls(id) ON DELETE CASCADE,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        );
+        """)
+
+        # Migration: Add AI screening columns to collaborations if not present
+        cursor.execute("PRAGMA table_info(collaborations);")
+        collab_cols = [c["name"] for c in cursor.fetchall()]
+        if "ai_seriousness_score" not in collab_cols:
+            cursor.execute("ALTER TABLE collaborations ADD COLUMN ai_seriousness_score INTEGER DEFAULT 0;")
+        if "ai_classification" not in collab_cols:
+            cursor.execute("ALTER TABLE collaborations ADD COLUMN ai_classification TEXT DEFAULT 'unreviewed';")
+        if "ai_rationale" not in collab_cols:
+            cursor.execute("ALTER TABLE collaborations ADD COLUMN ai_rationale TEXT DEFAULT '';")
+        if "ai_skills_matched" not in collab_cols:
+            cursor.execute("ALTER TABLE collaborations ADD COLUMN ai_skills_matched TEXT DEFAULT '[]';")
+
         # Create Indexes for lightning fast queries
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_ideas_user_id ON ideas(user_id);")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_ideas_status ON ideas(status);")
@@ -369,6 +408,8 @@ def init_db():
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_ideas_created_at ON ideas(created_at);")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_reactions_idea ON reactions(idea_id);")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_comments_idea ON comments(idea_id);")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_polls_idea ON polls(idea_id);")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_poll_votes ON poll_votes(poll_id);")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_messages_conv ON messages(conversation_id);")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_agent_runs_run_id ON agent_runs(run_id);")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_agent_runs_created ON agent_runs(created_at);")

@@ -1,3 +1,5 @@
+// NovaMind Frontend API Service Layer
+
 // Use relative URL so requests adapt automatically to Port 5000 (Gateway) or Port 8000 (FastAPI)
 const API_BASE = '';
 
@@ -51,10 +53,73 @@ export const api = {
     });
   },
 
-  reactToIdea(ideaId: string, reactionType: string) {
+  // Social Interactions (Like, Save, Follow, Comments)
+  likeIdea(ideaId: string) {
     return this.request<any>(`/api/ideas/${ideaId}/react`, {
       method: 'POST',
-      body: JSON.stringify({ reaction_type: reactionType }),
+      body: JSON.stringify({ reaction_type: 'like' }),
+    });
+  },
+
+  saveIdea(ideaId: string) {
+    return this.request<{ is_saved: boolean; message: string }>(`/api/ideas/${ideaId}/save`, {
+      method: 'POST',
+    });
+  },
+
+  followUser(userId: string) {
+    return this.request<{ is_following: boolean; is_connection: boolean; message: string }>(`/api/users/${userId}/follow`, {
+      method: 'POST',
+    });
+  },
+
+  getComments(ideaId: string) {
+    return this.request<{ comments: any[]; total_count: number }>(`/api/ideas/${ideaId}/comments`);
+  },
+
+  postComment(ideaId: string, content: string) {
+    return this.request<any>(`/api/ideas/${ideaId}/comments`, {
+      method: 'POST',
+      body: JSON.stringify({ content, comment_type: 'comment' }),
+    });
+  },
+
+  // Instagram-Style Community Polls
+  getPoll(ideaId: string) {
+    return this.request<{ poll: any | null }>(`/api/ideas/${ideaId}/poll`);
+  },
+
+  createPoll(ideaId: string, question: string, options: string[]) {
+    return this.request<{ poll: any }>(`/api/ideas/${ideaId}/poll`, {
+      method: 'POST',
+      body: JSON.stringify({ question, options }),
+    });
+  },
+
+  votePoll(pollId: string, optionIndex: number) {
+    return this.request<{ poll: any }>(`/api/ideas/polls/${pollId}/vote`, {
+      method: 'POST',
+      body: JSON.stringify({ option_index: optionIndex }),
+    });
+  },
+
+  // AI Collaborator Screening (Genuine vs Time-pass)
+  screenCollaborations(ideaId: string) {
+    return this.request<any>(`/api/ideas/${ideaId}/collaborations/ai-screen`, {
+      method: 'POST',
+    });
+  },
+
+  // LinkedIn & Naukri Talent Search Matcher
+  getTalentMatch(ideaId: string) {
+    return this.request<any>(`/api/ideas/${ideaId}/talent-match`);
+  },
+
+  // Government Schemes & Grants Intelligence
+  searchSchemes(ideaId: string, customUrl?: string) {
+    return this.request<any>(`/api/ideas/${ideaId}/schemes-search`, {
+      method: 'POST',
+      body: JSON.stringify({ custom_url: customUrl || null }),
     });
   },
 
@@ -74,14 +139,7 @@ export const api = {
     });
   },
 
-  // Authentication
-  login(login_identifier: string, password: string) {
-    return this.request<any>('/api/auth/login', {
-      method: 'POST',
-      body: JSON.stringify({ login_identifier, password }),
-    });
-  },
-
+  // Authentication & Demo
   demoSwitch(role: string = 'user') {
     return this.request<any>(`/api/auth/demo-switch?role=${role}`, {
       method: 'POST',

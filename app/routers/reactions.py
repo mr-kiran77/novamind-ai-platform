@@ -9,6 +9,8 @@ from app.models.schemas import ReactionToggleRequest
 router = APIRouter(prefix="/api/ideas", tags=["Reactions"])
 
 VALID_REACTIONS = {
+    "like": "❤️ Like",
+    "spark": "💡 Spark",
     "insightful": "💡 Insightful",
     "interesting": "🔍 Interesting",
     "creative": "🎨 Creative",

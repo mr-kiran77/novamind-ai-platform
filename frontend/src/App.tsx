@@ -5,6 +5,8 @@ import {
   Bot,
   Layers,
   Activity,
+  Bookmark,
+  Share2,
 } from 'lucide-react';
 import { Navbar } from './components/Navbar';
 import { IdeaCard } from './components/IdeaCard';
@@ -12,6 +14,7 @@ import { CollabModal } from './components/CollabModal';
 import { CaptureModal } from './components/CaptureModal';
 import { NovaDrawer } from './components/NovaDrawer';
 import { IdeaJourneyModal } from './components/IdeaJourneyModal';
+import { ShareModal } from './components/ShareModal';
 import { api } from './services/api';
 import type { Idea, User } from './types';
 
@@ -31,6 +34,7 @@ export function App() {
   const [currentTab, setCurrentTab] = useState<'feed' | 'trending' | 'admin'>('feed');
   const [ideas, setIdeas] = useState<Idea[]>([]);
   const [selectedCategory, setSelectedCategory] = useState('All');
+  const [onlySaved, setOnlySaved] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -40,6 +44,7 @@ export function App() {
   const [isNovaOpen, setIsNovaOpen] = useState(false);
   const [selectedIdeaForJourney, setSelectedIdeaForJourney] = useState<Idea | null>(null);
   const [selectedIdeaForCollab, setSelectedIdeaForCollab] = useState<Idea | null>(null);
+  const [selectedIdeaForShare, setSelectedIdeaForShare] = useState<Idea | null>(null);
 
   // Toast notification
   const [toast, setToast] = useState<string | null>(null);
@@ -87,7 +92,6 @@ export function App() {
         showToast(`Switched persona to: ${res.user.display_name} (${res.user.role})`);
       }
     } catch (e) {
-      // Fallback local switch
       if (role === 'moderator') {
         setCurrentUser({
           id: 'user_mod',
@@ -117,23 +121,60 @@ export function App() {
     }
   };
 
-  const handleReact = async (ideaId: string) => {
+  // Like Toggle
+  const handleLike = async (ideaId: string) => {
     try {
-      await api.reactToIdea(ideaId, 'lightbulb');
+      await api.likeIdea(ideaId);
       setIdeas(prev =>
-        prev.map(i =>
-          i.id === ideaId ? { ...i, reaction_count: (i.reaction_count || 0) + 1 } : i
-        )
+        prev.map(i => {
+          if (i.id === ideaId) {
+            const isLiked = !i.is_liked;
+            return {
+              ...i,
+              is_liked: isLiked,
+              reaction_count: isLiked ? (i.reaction_count || 0) + 1 : Math.max(0, (i.reaction_count || 1) - 1),
+            };
+          }
+          return i;
+        })
       );
-      showToast('💡 Sparked! Reaction recorded.');
+      showToast('❤️ Reaction recorded!');
     } catch (e: any) {
-      // Optimistic update
+      showToast('❤️ Reaction recorded!');
+    }
+  };
+
+  // Save / Bookmark Toggle
+  const handleSave = async (ideaId: string) => {
+    try {
+      const res = await api.saveIdea(ideaId);
+      const isSaved = res?.is_saved ?? true;
       setIdeas(prev =>
-        prev.map(i =>
-          i.id === ideaId ? { ...i, reaction_count: (i.reaction_count || 0) + 1 } : i
-        )
+        prev.map(i => (i.id === ideaId ? { ...i, is_saved: isSaved } : i))
       );
-      showToast('💡 Sparked! Reaction recorded.');
+      showToast(isSaved ? '🔖 Idea saved to your personal vault!' : 'Idea removed from saved vault.');
+    } catch (e) {
+      setIdeas(prev =>
+        prev.map(i => (i.id === ideaId ? { ...i, is_saved: !i.is_saved } : i))
+      );
+      showToast('🔖 Saved status updated!');
+    }
+  };
+
+  // Follow Toggle
+  const handleFollow = async (userId: string) => {
+    try {
+      const res = await api.followUser(userId);
+      const isFollowing = res?.is_following ?? true;
+      setIdeas(prev =>
+        prev.map(i => (i.user_id === userId ? { ...i, is_following_author: isFollowing } : i))
+      );
+      showToast(isFollowing ? '👤 Now following creator!' : 'Unfollowed creator.');
+    } catch (e) {
+      setIdeas(prev =>
+        prev.map(i => (i.user_id === userId ? { ...i, is_following_author: !i.is_following_author } : i))
+      );
+      showToast('👤 Follow status updated!');
     }
   };
 
@@ -153,12 +194,13 @@ export function App() {
       );
       showToast('🤝 Collaboration offer sent to the host creator!');
     } catch (e: any) {
-      showToast(`Collaboration offer submitted for review!`);
+      showToast('Collaboration offer submitted for review!');
     }
   };
 
-  // Filter ideas by search
+  // Filter ideas by search & saved state
   const filteredIdeas = ideas.filter(i => {
+    if (onlySaved && !i.is_saved) return false;
     const q = searchQuery.toLowerCase();
     const matchTitle = i.title?.toLowerCase().includes(q);
     const matchSummary = i.structured_data?.one_line_summary?.toLowerCase().includes(q);
@@ -181,7 +223,7 @@ export function App() {
       <Navbar
         currentTab={currentTab}
         setCurrentTab={(tab: string) => setCurrentTab(tab as any)}
-        onOpenCapture={() => setIsCaptureOpen(false)}
+        onOpenCapture={() => setIsCaptureOpen(true)}
         onOpenNova={() => setIsNovaOpen(true)}
         currentUser={currentUser}
         onSwitchRole={handleRoleSwitch}
@@ -205,7 +247,7 @@ export function App() {
             </h1>
 
             <p className="text-xs sm:text-sm text-gray-300 leading-relaxed">
-              Capture napkin thoughts, voice memos, and raw concepts. Our 50-agent Gemini swarm transforms them into 22-field structured execution roadmaps with verified collaborator recruitment.
+              Capture napkin thoughts, voice memos, and raw concepts. Our 50-agent Gemini swarm transforms them into 22-field execution models with verified talent recruitment and government grant matching.
             </p>
 
             <div className="flex items-center gap-3 pt-2 flex-wrap">
@@ -252,14 +294,17 @@ export function App() {
           <section className="space-y-4">
             {/* Search & Categories Bar */}
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-              {/* Category Pills */}
+              {/* Category Pills & Saved Filter */}
               <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
                 {CATEGORIES.map(cat => (
                   <button
                     key={cat}
-                    onClick={() => setSelectedCategory(cat)}
+                    onClick={() => {
+                      setSelectedCategory(cat);
+                      setOnlySaved(false);
+                    }}
                     className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
-                      selectedCategory === cat
+                      selectedCategory === cat && !onlySaved
                         ? 'gradient-btn text-white shadow-md shadow-purple-500/20'
                         : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 border border-white/5'
                     }`}
@@ -267,6 +312,19 @@ export function App() {
                     {cat}
                   </button>
                 ))}
+
+                {/* Saved Vault Filter Pill */}
+                <button
+                  onClick={() => setOnlySaved(!onlySaved)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 ${
+                    onlySaved
+                      ? 'bg-amber-500/30 text-amber-300 border border-amber-500 shadow-md'
+                      : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 border border-white/5'
+                  }`}
+                >
+                  <Bookmark className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Saved Vault</span>
+                </button>
               </div>
 
               {/* Search Bar */}
@@ -317,7 +375,9 @@ export function App() {
                 <Layers className="w-10 h-10 text-gray-500 mx-auto" />
                 <h3 className="font-bold text-base text-white">No Innovation Blueprints Found</h3>
                 <p className="text-xs text-gray-400 max-w-sm mx-auto">
-                  Be the first to capture an idea in this domain and let Gemini structure it into a 22-field execution model.
+                  {onlySaved
+                    ? "You haven't saved any ideas yet. Click the bookmark icon on any idea card to save it to your vault!"
+                    : "Be the first to capture an idea in this domain and let Gemini structure it into a 22-field execution model."}
                 </p>
                 <button
                   onClick={() => setIsCaptureOpen(true)}
@@ -333,7 +393,11 @@ export function App() {
                   <IdeaCard
                     key={idea.id}
                     idea={idea}
-                    onReact={handleReact}
+                    onLike={handleLike}
+                    onComment={(ideaToComment) => setSelectedIdeaForJourney(ideaToComment)}
+                    onShare={(ideaToShare) => setSelectedIdeaForShare(ideaToShare)}
+                    onSave={handleSave}
+                    onFollow={handleFollow}
                     onCollaborate={(ideaToCollab) => setSelectedIdeaForCollab(ideaToCollab)}
                     onViewDetail={(ideaToView) => setSelectedIdeaForJourney(ideaToView)}
                   />
@@ -423,6 +487,11 @@ export function App() {
           setSelectedIdeaForCollab(ideaToCollab);
         }}
         currentUser={currentUser}
+      />
+
+      <ShareModal
+        idea={selectedIdeaForShare}
+        onClose={() => setSelectedIdeaForShare(null)}
       />
 
       <NovaDrawer

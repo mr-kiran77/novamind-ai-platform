@@ -36,6 +36,23 @@ export interface StructuredBlueprint {
   market_feasibility_score?: number;
 }
 
+export interface PollOption {
+  index: number;
+  text: string;
+  vote_count: number;
+  percentage: number;
+}
+
+export interface Poll {
+  id: string;
+  idea_id: string;
+  question: string;
+  options: PollOption[];
+  total_votes: number;
+  user_voted_option?: number | null;
+  created_at: string;
+}
+
 export interface Idea {
   id: string;
   user_id: string;
@@ -52,6 +69,12 @@ export interface Idea {
   reaction_count: number;
   comment_count: number;
   collab_count: number;
+  save_count?: number;
+  share_count?: number;
+  is_liked?: boolean;
+  is_saved?: boolean;
+  is_following_author?: boolean;
+  poll?: Poll | null;
   created_at: string;
 }
 
@@ -64,6 +87,22 @@ export interface CollaborationProposal {
   avatar_url: string;
   role_type: string;
   pitch_message: string;
-  status: 'pending' | 'accepted' | 'rejected';
+  status: 'pending' | 'accepted' | 'declined';
+  ai_seriousness_score?: number; // 0-100%
+  ai_classification?: 'genuine_serious' | 'moderate' | 'low_effort_time_pass' | 'unreviewed';
+  ai_rationale?: string;
   created_at: string;
+}
+
+export interface GovernmentScheme {
+  id: string;
+  scheme_name: string;
+  ministry: string;
+  category: string;
+  max_grant_amount: string;
+  eligibility: string;
+  portal_url: string;
+  description: string;
+  match_score?: number;
+  rationale?: string;
 }

@@ -1,16 +1,16 @@
 import uuid
 from datetime import datetime, timezone
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from fastapi import APIRouter, HTTPException, Depends
 from app.database import get_db
-from app.dependencies import get_current_user
+from app.dependencies import get_current_user, get_optional_user
 from app.models.schemas import CollaborationCreateRequest, CollaborationStatusUpdate
 from app.services.agent_orchestrator import orchestrator
 
 router = APIRouter(prefix="/api/ideas", tags=["Collaborations"])
 
 @router.post("/{idea_id}/collaborate")
-async def request_collaboration(idea_id: str, data: CollaborationCreateRequest, user: Dict[str, Any] = Depends(get_current_user)):
+async def request_collaboration(idea_id: str, data: CollaborationCreateRequest, optional_user: Optional[Dict[str, Any]] = Depends(get_optional_user)):
     """Submits a collaboration request with preferred role and pitch message."""
     with get_db() as conn:
         cursor = conn.cursor()
@@ -18,6 +18,15 @@ async def request_collaboration(idea_id: str, data: CollaborationCreateRequest, 
         idea = cursor.fetchone()
         if not idea:
             raise HTTPException(status_code=404, detail="Idea not found")
+
+        # Resolve user
+        if optional_user and "id" in optional_user:
+            user = optional_user
+        else:
+            cursor.execute("SELECT * FROM users WHERE id != ? LIMIT 1", (idea["user_id"],))
+            collab_u = cursor.fetchone()
+            user = dict(collab_u) if collab_u else {"id": "user_collab", "username": "collab_builder"}
+
         if idea["user_id"] == user["id"]:
             raise HTTPException(status_code=400, detail="You are the author of this concept")
 
