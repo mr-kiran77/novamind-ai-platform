@@ -6,7 +6,6 @@ import {
   Layers,
   Activity,
   Bookmark,
-  Share2,
 } from 'lucide-react';
 import { Navbar } from './components/Navbar';
 import { IdeaCard } from './components/IdeaCard';
@@ -15,6 +14,7 @@ import { CaptureModal } from './components/CaptureModal';
 import { NovaDrawer } from './components/NovaDrawer';
 import { IdeaJourneyModal } from './components/IdeaJourneyModal';
 import { ShareModal } from './components/ShareModal';
+import { CommentModal } from './components/CommentModal';
 import { api } from './services/api';
 import type { Idea, User } from './types';
 
@@ -39,12 +39,35 @@ export function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Theme State (Light / Dark Mode)
+  const [theme, setTheme] = useState<'dark' | 'light'>(() => {
+    const saved = localStorage.getItem('novamind_theme');
+    return (saved === 'light' || saved === 'dark') ? saved : 'dark';
+  });
+
+  useEffect(() => {
+    const root = document.documentElement;
+    if (theme === 'dark') {
+      root.classList.add('dark');
+      root.classList.remove('light');
+    } else {
+      root.classList.add('light');
+      root.classList.remove('dark');
+    }
+    localStorage.setItem('novamind_theme', theme);
+  }, [theme]);
+
+  const handleToggleTheme = () => {
+    setTheme(prev => (prev === 'dark' ? 'light' : 'dark'));
+  };
+
   // Modals & Drawers state
   const [isCaptureOpen, setIsCaptureOpen] = useState(false);
   const [isNovaOpen, setIsNovaOpen] = useState(false);
   const [selectedIdeaForJourney, setSelectedIdeaForJourney] = useState<Idea | null>(null);
   const [selectedIdeaForCollab, setSelectedIdeaForCollab] = useState<Idea | null>(null);
   const [selectedIdeaForShare, setSelectedIdeaForShare] = useState<Idea | null>(null);
+  const [selectedIdeaForComment, setSelectedIdeaForComment] = useState<Idea | null>(null);
 
   // Toast notification
   const [toast, setToast] = useState<string | null>(null);
@@ -121,7 +144,7 @@ export function App() {
     }
   };
 
-  // Like Toggle
+  // Like Toggle (Any user can like a poster's idea)
   const handleLike = async (ideaId: string) => {
     try {
       await api.likeIdea(ideaId);
@@ -138,13 +161,13 @@ export function App() {
           return i;
         })
       );
-      showToast('❤️ Reaction recorded!');
+      showToast('❤️ Reaction recorded on idea!');
     } catch (e: any) {
       showToast('❤️ Reaction recorded!');
     }
   };
 
-  // Save / Bookmark Toggle
+  // Save / Bookmark Toggle (Any user can save a poster's idea to their vault)
   const handleSave = async (ideaId: string) => {
     try {
       const res = await api.saveIdea(ideaId);
@@ -161,7 +184,7 @@ export function App() {
     }
   };
 
-  // Follow Toggle
+  // Follow Toggle (Any user can follow the poster)
   const handleFollow = async (userId: string) => {
     try {
       const res = await api.followUser(userId);
@@ -169,7 +192,7 @@ export function App() {
       setIdeas(prev =>
         prev.map(i => (i.user_id === userId ? { ...i, is_following_author: isFollowing } : i))
       );
-      showToast(isFollowing ? '👤 Now following creator!' : 'Unfollowed creator.');
+      showToast(isFollowing ? '👤 Now following idea poster!' : 'Unfollowed idea poster.');
     } catch (e) {
       setIdeas(prev =>
         prev.map(i => (i.user_id === userId ? { ...i, is_following_author: !i.is_following_author } : i))
@@ -180,7 +203,7 @@ export function App() {
 
   const handleIdeaCreated = (newIdea: Idea) => {
     setIdeas(prev => [newIdea, ...prev]);
-    showToast('✨ Idea successfully structured with Gemini 3.8 Flash!');
+    showToast('✨ Idea successfully posted & structured with Gemini 3.8 Flash!');
     setSelectedIdeaForJourney(newIdea);
   };
 
@@ -192,7 +215,7 @@ export function App() {
           i.id === ideaId ? { ...i, collab_count: (i.collab_count || 0) + 1 } : i
         )
       );
-      showToast('🤝 Collaboration offer sent to the host creator!');
+      showToast('🤝 Collaboration offer sent to the idea poster!');
     } catch (e: any) {
       showToast('Collaboration offer submitted for review!');
     }
@@ -209,17 +232,23 @@ export function App() {
     return matchTitle || matchSummary || matchContent || matchTag;
   });
 
+  const isDark = theme === 'dark';
+
   return (
-    <div className="min-h-screen bg-[#07080d] text-white flex flex-col font-sans selection:bg-purple-500 selection:text-white relative">
+    <div
+      className={`min-h-screen flex flex-col font-sans selection:bg-purple-500 selection:text-white relative transition-colors duration-200 ${
+        isDark ? 'bg-[#07080d] text-white' : 'bg-slate-50 text-slate-900'
+      }`}
+    >
       {/* Toast Notification */}
       {toast && (
-        <div className="fixed top-20 right-6 z-50 bg-purple-600/90 border border-purple-400 text-white text-xs px-4 py-2.5 rounded-xl shadow-2xl backdrop-blur-md animate-fade-in flex items-center gap-2">
+        <div className="fixed top-20 right-6 z-50 bg-purple-600/95 border border-purple-400 text-white text-xs px-4 py-2.5 rounded-xl shadow-2xl backdrop-blur-md animate-fade-in flex items-center gap-2">
           <Sparkles className="w-4 h-4 text-cyan-300" />
           <span>{toast}</span>
         </div>
       )}
 
-      {/* Top Navbar */}
+      {/* Top Navbar with Theme Toggle at top right */}
       <Navbar
         currentTab={currentTab}
         setCurrentTab={(tab: string) => setCurrentTab(tab as any)}
@@ -227,26 +256,34 @@ export function App() {
         onOpenNova={() => setIsNovaOpen(true)}
         currentUser={currentUser}
         onSwitchRole={handleRoleSwitch}
+        theme={theme}
+        onToggleTheme={handleToggleTheme}
       />
 
       {/* Main Container */}
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 lg:px-8 py-6 space-y-6">
         {/* HERO BANNER */}
-        <section className="relative overflow-hidden rounded-3xl p-6 sm:p-8 bg-gradient-to-r from-purple-950/60 via-[#101226]/80 to-cyan-950/40 border border-purple-500/20 shadow-2xl">
+        <section
+          className={`relative overflow-hidden rounded-3xl p-6 sm:p-8 border shadow-2xl transition-colors ${
+            isDark
+              ? 'bg-gradient-to-r from-purple-950/60 via-[#101226]/80 to-cyan-950/40 border-purple-500/20'
+              : 'bg-gradient-to-r from-purple-50 via-white to-cyan-50 border-purple-200'
+          }`}
+        >
           <div className="relative z-10 max-w-2xl space-y-3">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/30 text-[11px] font-semibold text-purple-300">
-              <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/30 text-[11px] font-semibold text-purple-400">
+              <Sparkles className="w-3.5 h-3.5 text-cyan-500" />
               <span>SHIP TO BUILD WITH AI • Production Platform</span>
             </div>
 
-            <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight text-white leading-tight">
+            <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight leading-tight">
               Turn Messy Ideas into{' '}
-              <span className="bg-gradient-to-r from-purple-400 via-pink-400 to-cyan-300 bg-clip-text text-transparent">
+              <span className="bg-gradient-to-r from-purple-500 via-pink-500 to-cyan-500 bg-clip-text text-transparent">
                 Executable Blueprints
               </span>
             </h1>
 
-            <p className="text-xs sm:text-sm text-gray-300 leading-relaxed">
+            <p className={`text-xs sm:text-sm leading-relaxed ${isDark ? 'text-gray-300' : 'text-slate-600'}`}>
               Capture napkin thoughts, voice memos, and raw concepts. Our 50-agent Gemini swarm transforms them into 22-field execution models with verified talent recruitment and government grant matching.
             </p>
 
@@ -255,36 +292,48 @@ export function App() {
                 onClick={() => setIsCaptureOpen(true)}
                 className="gradient-btn text-white px-5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 shadow-lg shadow-purple-500/30 hover:scale-105 transition-transform"
               >
-                <Sparkles className="w-4 h-4" />
-                <span>Capture Your Idea</span>
+                <Sparkles className="w-4 h-4 text-white" />
+                <span className="btn-keep-white">Post Your Idea</span>
               </button>
               <button
                 onClick={() => setIsNovaOpen(true)}
-                className="bg-white/5 hover:bg-white/10 text-white border border-white/10 px-4 py-2.5 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all"
+                className={`border px-4 py-2.5 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all ${
+                  isDark
+                    ? 'bg-white/5 hover:bg-white/10 text-white border-white/10'
+                    : 'bg-white hover:bg-slate-50 text-slate-800 border-slate-200 shadow-sm'
+                }`}
               >
-                <Bot className="w-4 h-4 text-cyan-400" />
+                <Bot className="w-4 h-4 text-cyan-500" />
                 <span>Chat with Nova Mentor</span>
               </button>
             </div>
           </div>
 
           {/* Quick Metrics Bar */}
-          <div className="mt-6 pt-6 border-t border-white/10 grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
-            <div className="p-2.5 rounded-xl bg-white/[0.02] border border-white/5">
-              <div className="text-xl font-black text-purple-300">{ideas.length || 12}</div>
-              <div className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold">Live Blueprints</div>
+          <div className={`mt-6 pt-6 border-t grid grid-cols-2 sm:grid-cols-4 gap-4 text-center ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
+            <div className={`p-2.5 rounded-xl border ${isDark ? 'bg-white/[0.02] border-white/5' : 'bg-white border-slate-200 shadow-sm'}`}>
+              <div className="text-xl font-black text-purple-500">{ideas.length || 12}</div>
+              <div className={`text-[10px] uppercase tracking-wider font-semibold ${isDark ? 'text-gray-400' : 'text-slate-500'}`}>
+                Posted Ideas
+              </div>
             </div>
-            <div className="p-2.5 rounded-xl bg-white/[0.02] border border-white/5">
-              <div className="text-xl font-black text-cyan-300">50</div>
-              <div className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold">Active AI Agents</div>
+            <div className={`p-2.5 rounded-xl border ${isDark ? 'bg-white/[0.02] border-white/5' : 'bg-white border-slate-200 shadow-sm'}`}>
+              <div className="text-xl font-black text-cyan-500">50</div>
+              <div className={`text-[10px] uppercase tracking-wider font-semibold ${isDark ? 'text-gray-400' : 'text-slate-500'}`}>
+                Active AI Agents
+              </div>
             </div>
-            <div className="p-2.5 rounded-xl bg-white/[0.02] border border-white/5">
-              <div className="text-xl font-black text-pink-300">7-Stage</div>
-              <div className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold">Idea Pipeline</div>
+            <div className={`p-2.5 rounded-xl border ${isDark ? 'bg-white/[0.02] border-white/5' : 'bg-white border-slate-200 shadow-sm'}`}>
+              <div className="text-xl font-black text-pink-500">7-Stage</div>
+              <div className={`text-[10px] uppercase tracking-wider font-semibold ${isDark ? 'text-gray-400' : 'text-slate-500'}`}>
+                Innovation Journey
+              </div>
             </div>
-            <div className="p-2.5 rounded-xl bg-white/[0.02] border border-white/5">
-              <div className="text-xl font-black text-amber-300">100%</div>
-              <div className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold">Privacy-First</div>
+            <div className={`p-2.5 rounded-xl border ${isDark ? 'bg-white/[0.02] border-white/5' : 'bg-white border-slate-200 shadow-sm'}`}>
+              <div className="text-xl font-black text-amber-500">100%</div>
+              <div className={`text-[10px] uppercase tracking-wider font-semibold ${isDark ? 'text-gray-400' : 'text-slate-500'}`}>
+                Collaborative
+              </div>
             </div>
           </div>
         </section>
@@ -306,7 +355,9 @@ export function App() {
                     className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
                       selectedCategory === cat && !onlySaved
                         ? 'gradient-btn text-white shadow-md shadow-purple-500/20'
-                        : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 border border-white/5'
+                        : isDark
+                        ? 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 border border-white/5'
+                        : 'bg-white text-slate-600 hover:text-slate-900 border border-slate-200 shadow-sm'
                     }`}
                   >
                     {cat}
@@ -318,24 +369,30 @@ export function App() {
                   onClick={() => setOnlySaved(!onlySaved)}
                   className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 ${
                     onlySaved
-                      ? 'bg-amber-500/30 text-amber-300 border border-amber-500 shadow-md'
-                      : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 border border-white/5'
+                      ? 'bg-amber-500/30 text-amber-500 border border-amber-500 shadow-md'
+                      : isDark
+                      ? 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 border border-white/5'
+                      : 'bg-white text-slate-600 hover:text-slate-900 border border-slate-200 shadow-sm'
                   }`}
                 >
-                  <Bookmark className="w-3.5 h-3.5 text-amber-400" />
+                  <Bookmark className="w-3.5 h-3.5 text-amber-500" />
                   <span>Saved Vault</span>
                 </button>
               </div>
 
               {/* Search Bar */}
               <div className="relative min-w-[240px]">
-                <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <Search className={`w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 ${isDark ? 'text-gray-400' : 'text-slate-400'}`} />
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search blueprints, tech stack..."
-                  className="w-full bg-white/5 border border-white/10 rounded-xl pl-9 pr-3 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-purple-500"
+                  placeholder="Search blueprints, poster ideas..."
+                  className={`w-full border rounded-xl pl-9 pr-3 py-1.5 text-xs transition-colors ${
+                    isDark
+                      ? 'bg-white/5 border-white/10 text-white placeholder-gray-500 focus:outline-none focus:border-purple-500'
+                      : 'bg-white border-slate-200 text-slate-900 placeholder-slate-400 focus:outline-none focus:border-purple-500 shadow-sm'
+                  }`}
                 />
               </div>
             </div>
@@ -373,18 +430,18 @@ export function App() {
             ) : filteredIdeas.length === 0 ? (
               <div className="glass-panel rounded-2xl p-12 text-center space-y-3 border-dashed border-white/10">
                 <Layers className="w-10 h-10 text-gray-500 mx-auto" />
-                <h3 className="font-bold text-base text-white">No Innovation Blueprints Found</h3>
+                <h3 className="font-bold text-base">No Innovation Blueprints Found</h3>
                 <p className="text-xs text-gray-400 max-w-sm mx-auto">
                   {onlySaved
-                    ? "You haven't saved any ideas yet. Click the bookmark icon on any idea card to save it to your vault!"
-                    : "Be the first to capture an idea in this domain and let Gemini structure it into a 22-field execution model."}
+                    ? "You haven't saved any ideas yet. Click the bookmark icon on any poster's idea card to save it to your vault!"
+                    : "Be the first poster in this domain and let Gemini structure your raw thoughts into an executable blueprint."}
                 </p>
                 <button
                   onClick={() => setIsCaptureOpen(true)}
                   className="gradient-btn text-white px-4 py-2 rounded-xl text-xs font-bold inline-flex items-center gap-2 mt-2"
                 >
-                  <Sparkles className="w-4 h-4" />
-                  <span>Capture New Idea</span>
+                  <Sparkles className="w-4 h-4 text-white" />
+                  <span className="btn-keep-white">Post New Idea</span>
                 </button>
               </div>
             ) : (
@@ -393,8 +450,9 @@ export function App() {
                   <IdeaCard
                     key={idea.id}
                     idea={idea}
+                    currentUser={currentUser}
                     onLike={handleLike}
-                    onComment={(ideaToComment) => setSelectedIdeaForJourney(ideaToComment)}
+                    onComment={(ideaToComment) => setSelectedIdeaForComment(ideaToComment)}
                     onShare={(ideaToShare) => setSelectedIdeaForShare(ideaToShare)}
                     onSave={handleSave}
                     onFollow={handleFollow}
@@ -413,40 +471,40 @@ export function App() {
             <div className="glass-panel p-6 rounded-2xl border-cyan-500/30 space-y-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-cyan-500/20 border border-cyan-400 text-cyan-300 flex items-center justify-center">
+                  <div className="w-10 h-10 rounded-xl bg-cyan-500/20 border border-cyan-400 text-cyan-500 flex items-center justify-center">
                     <Bot className="w-5 h-5" />
                   </div>
                   <div>
-                    <h2 className="text-lg font-bold text-white">50-Autonomous Agent Innovation Swarm</h2>
+                    <h2 className="text-lg font-bold">50-Autonomous Agent Innovation Swarm</h2>
                     <p className="text-xs text-gray-400">
                       Simulated synthetic innovators, stress-testers, academic peer reviewers, and angel scouts
                     </p>
                   </div>
                 </div>
-                <span className="text-xs bg-green-500/20 text-green-300 border border-green-500/30 px-2.5 py-1 rounded-full font-bold flex items-center gap-1.5">
+                <span className="text-xs bg-green-500/20 text-green-400 border border-green-500/30 px-2.5 py-1 rounded-full font-bold flex items-center gap-1.5">
                   <Activity className="w-3.5 h-3.5 animate-pulse" />
                   50 Agents Operational
                 </span>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
-                <div className="p-4 rounded-xl bg-white/[0.02] border border-white/5 space-y-1">
-                  <div className="text-xs font-bold text-cyan-400">1. Domain Specialists (15)</div>
+                <div className={`p-4 rounded-xl border space-y-1 ${isDark ? 'bg-white/[0.02] border-white/5' : 'bg-white border-slate-200'}`}>
+                  <div className="text-xs font-bold text-cyan-500">1. Domain Specialists (15)</div>
                   <p className="text-[11px] text-gray-400">BioTech, CleanTech, Quantum, Neurotech, Space Systems</p>
                 </div>
-                <div className="p-4 rounded-xl bg-white/[0.02] border border-white/5 space-y-1">
-                  <div className="text-xs font-bold text-purple-400">2. Devil's Advocates &amp; Risk Auditors (15)</div>
+                <div className={`p-4 rounded-xl border space-y-1 ${isDark ? 'bg-white/[0.02] border-white/5' : 'bg-white border-slate-200'}`}>
+                  <div className="text-xs font-bold text-purple-500">2. Devil's Advocates &amp; Risk Auditors (15)</div>
                   <p className="text-[11px] text-gray-400">Black swan detection, supply chain bottlenecks, safety checks</p>
                 </div>
-                <div className="p-4 rounded-xl bg-white/[0.02] border border-white/5 space-y-1">
-                  <div className="text-xs font-bold text-amber-400">3. Commercialization &amp; Angels (20)</div>
+                <div className={`p-4 rounded-xl border space-y-1 ${isDark ? 'bg-white/[0.02] border-white/5' : 'bg-white border-slate-200'}`}>
+                  <div className="text-xs font-bold text-amber-500">3. Commercialization &amp; Angels (20)</div>
                   <p className="text-[11px] text-gray-400">Unit economics, grant eligibility, go-to-market speedruns</p>
                 </div>
               </div>
 
-              <div className="p-3 bg-black/40 rounded-xl border border-white/5 flex items-center justify-between text-xs">
+              <div className={`p-3 rounded-xl border flex items-center justify-between text-xs ${isDark ? 'bg-black/40 border-white/5' : 'bg-slate-100 border-slate-200'}`}>
                 <span className="text-gray-400">FastAPI Agent Swarm Microservice:</span>
-                <span className="font-mono text-cyan-300">http://localhost:8000/api/assistant/swarm</span>
+                <span className="font-mono text-cyan-500 font-bold">http://localhost:8000/api/assistant/swarm</span>
               </div>
             </div>
           </section>
@@ -460,7 +518,7 @@ export function App() {
         title="Open Nova AI Innovation Mentor"
       >
         <Sparkles className="w-5 h-5 text-white animate-pulse" />
-        <span className="text-xs font-bold hidden sm:inline">Ask Nova</span>
+        <span className="text-xs font-bold hidden sm:inline btn-keep-white">Ask Nova</span>
       </button>
 
       {/* MODALS */}
@@ -486,7 +544,25 @@ export function App() {
         onOpenCollab={(ideaToCollab) => {
           setSelectedIdeaForCollab(ideaToCollab);
         }}
+        onFollowPoster={handleFollow}
         currentUser={currentUser}
+      />
+
+      {/* Dedicated Comment Modal for Any User to Comment on Poster's Idea */}
+      <CommentModal
+        idea={selectedIdeaForComment}
+        currentUser={currentUser}
+        onClose={() => setSelectedIdeaForComment(null)}
+        onFollowPoster={handleFollow}
+        onViewFullBlueprint={(idea) => {
+          setSelectedIdeaForComment(null);
+          setSelectedIdeaForJourney(idea);
+        }}
+        onCommentCountChange={(ideaId, newCount) => {
+          setIdeas(prev =>
+            prev.map(i => (i.id === ideaId ? { ...i, comment_count: newCount } : i))
+          );
+        }}
       />
 
       <ShareModal

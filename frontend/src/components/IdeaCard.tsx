@@ -9,12 +9,14 @@ import {
   UserPlus,
   UserCheck,
   BarChart3,
+  Sparkles,
 } from 'lucide-react';
-import type { Idea } from '../types';
+import type { Idea, User } from '../types';
 import { PollWidget } from './PollWidget';
 
 interface IdeaCardProps {
   idea: Idea;
+  currentUser?: User;
   onLike: (id: string) => void;
   onComment: (idea: Idea) => void;
   onShare: (idea: Idea) => void;
@@ -26,6 +28,7 @@ interface IdeaCardProps {
 
 export const IdeaCard: React.FC<IdeaCardProps> = ({
   idea,
+  currentUser,
   onLike,
   onComment,
   onShare,
@@ -36,6 +39,8 @@ export const IdeaCard: React.FC<IdeaCardProps> = ({
 }) => {
   const [showPoll, setShowPoll] = useState(false);
   const summary = idea.structured_data?.one_line_summary || idea.raw_content;
+
+  const isCurrentUserPoster = currentUser && (currentUser.id === idea.user_id || currentUser.username === idea.username);
 
   const stageLabels: Record<string, string> = {
     raw_thought: '1. Raw Thought',
@@ -50,51 +55,73 @@ export const IdeaCard: React.FC<IdeaCardProps> = ({
   return (
     <div className="glass-panel rounded-2xl p-5 flex flex-col justify-between hover:border-purple-500/40 transition-all duration-300 group shadow-xl relative">
       <div>
-        {/* Creator Header with Follow Button */}
+        {/* Poster Header Bar */}
         <div className="flex items-center justify-between gap-2 mb-3">
-          <div className="flex items-center gap-2.5">
+          {/* Poster Identity */}
+          <div className="flex items-center gap-2.5 min-w-0">
             <img
               src={idea.avatar_url || 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150'}
               alt={idea.display_name}
-              className="w-9 h-9 rounded-xl object-cover border border-purple-500/30"
+              className="w-10 h-10 rounded-xl object-cover border border-purple-500/40 shrink-0"
             />
-            <div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs font-bold text-white group-hover:text-purple-300 transition-colors block">
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-xs font-bold text-white group-hover:text-purple-300 transition-colors truncate">
                   {idea.display_name}
                 </span>
-                {/* Follow Button */}
-                <button
-                  onClick={() => onFollow(idea.user_id)}
-                  title={idea.is_following_author ? 'Following' : 'Follow Creator'}
-                  className={`text-[10px] px-2 py-0.5 rounded-full flex items-center gap-1 transition-all ${
-                    idea.is_following_author
-                      ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 font-semibold'
-                      : 'bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white border border-white/10'
-                  }`}
-                >
-                  {idea.is_following_author ? (
-                    <>
-                      <UserCheck className="w-2.5 h-2.5" />
-                      <span>Following</span>
-                    </>
-                  ) : (
-                    <>
-                      <UserPlus className="w-2.5 h-2.5" />
-                      <span>Follow</span>
-                    </>
-                  )}
-                </button>
+
+                {/* Explicit Poster Tag */}
+                <span className="text-[9px] bg-gradient-to-r from-amber-500/30 to-orange-500/30 text-amber-300 border border-amber-500/40 px-1.5 py-0.2 rounded-md font-extrabold tracking-wide uppercase">
+                  💡 Poster
+                </span>
+
+                {isCurrentUserPoster && (
+                  <span className="text-[9px] bg-purple-500/20 text-purple-300 px-1 rounded font-semibold">
+                    (You)
+                  </span>
+                )}
               </div>
-              <span className="text-[10px] text-gray-500">@{idea.username}</span>
+
+              <div className="flex items-center gap-2 mt-0.5">
+                <span className="text-[10px] text-gray-400">@{idea.username}</span>
+
+                {/* Follow Poster Button (for other Users) */}
+                {!isCurrentUserPoster && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onFollow(idea.user_id);
+                    }}
+                    title={idea.is_following_author ? 'Unfollow Poster' : 'Follow this Poster'}
+                    className={`text-[10px] px-2 py-0.5 rounded-full flex items-center gap-1 transition-all ${
+                      idea.is_following_author
+                        ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-semibold'
+                        : 'bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white border border-white/10'
+                    }`}
+                  >
+                    {idea.is_following_author ? (
+                      <>
+                        <UserCheck className="w-2.5 h-2.5 text-cyan-400" />
+                        <span>Following</span>
+                      </>
+                    ) : (
+                      <>
+                        <UserPlus className="w-2.5 h-2.5 text-purple-400" />
+                        <span>Follow</span>
+                      </>
+                    )}
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5">
+          {/* Category & Stage Pills */}
+          <div className="flex flex-col items-end gap-1 shrink-0">
             <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-300 border border-purple-500/20 font-semibold">
               {idea.category}
             </span>
-            <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 font-semibold">
+            <span className="text-[9px] px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 font-semibold">
               {stageLabels[idea.stage] || 'Structured'}
             </span>
           </div>
@@ -110,8 +137,8 @@ export const IdeaCard: React.FC<IdeaCardProps> = ({
           </p>
         </div>
 
-        {/* Tags */}
-        <div className="flex flex-wrap gap-1.5 mt-3">
+        {/* Tags & Community Poll Indicator */}
+        <div className="flex flex-wrap gap-1.5 mt-3 items-center">
           {(idea.tags || []).slice(0, 3).map((tag, idx) => (
             <span
               key={idx}
@@ -120,12 +147,13 @@ export const IdeaCard: React.FC<IdeaCardProps> = ({
               #{tag}
             </span>
           ))}
+
           {idea.poll && (
             <button
               onClick={() => setShowPoll(!showPoll)}
-              className="text-[10px] bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 px-2 py-0.5 rounded-full font-semibold flex items-center gap-1"
+              className="text-[10px] bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 px-2 py-0.5 rounded-full font-semibold flex items-center gap-1 hover:bg-cyan-500/30 transition-colors"
             >
-              <BarChart3 className="w-3 h-3" />
+              <BarChart3 className="w-3 h-3 text-cyan-400" />
               <span>Poll ({idea.poll.total_votes} votes)</span>
             </button>
           )}
@@ -139,14 +167,14 @@ export const IdeaCard: React.FC<IdeaCardProps> = ({
         )}
       </div>
 
-      {/* Social Actions Footer */}
+      {/* Social Actions Footer for Users: Like, Comment, Save, Share */}
       <div className="mt-4 pt-3 border-t border-white/5 flex items-center justify-between gap-2 text-xs flex-wrap">
         <div className="flex items-center gap-1.5">
           {/* Like Button */}
           <button
             onClick={() => onLike(idea.id)}
-            title="Like Idea"
-            className={`flex items-center gap-1 text-[11px] px-2 py-1 rounded-lg transition-all border ${
+            title={idea.is_liked ? 'Liked by you' : 'Like Poster\'s Idea'}
+            className={`flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-lg transition-all border ${
               idea.is_liked
                 ? 'bg-rose-500/20 border-rose-500/40 text-rose-300 font-bold'
                 : 'bg-white/5 hover:bg-rose-500/10 text-gray-400 hover:text-rose-300 border-white/5'
@@ -156,20 +184,20 @@ export const IdeaCard: React.FC<IdeaCardProps> = ({
             <span>{idea.reaction_count || 0}</span>
           </button>
 
-          {/* Comment Button */}
+          {/* Comment on Poster's Idea Button */}
           <button
             onClick={() => onComment(idea)}
-            title="Opinions & Comments"
-            className="flex items-center gap-1 text-[11px] px-2 py-1 rounded-lg bg-white/5 hover:bg-purple-500/15 text-gray-400 hover:text-purple-300 transition-colors border border-white/5"
+            title="Comment on Poster's Idea"
+            className="flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-lg bg-white/5 hover:bg-purple-500/15 text-gray-400 hover:text-purple-300 transition-colors border border-white/5"
           >
             <MessageCircle className="w-3.5 h-3.5" />
             <span>{idea.comment_count || 0}</span>
           </button>
 
-          {/* Save / Bookmark Button */}
+          {/* Save / Bookmark to Vault */}
           <button
             onClick={() => onSave(idea.id)}
-            title={idea.is_saved ? 'Saved in Vault' : 'Save to Vault'}
+            title={idea.is_saved ? 'Saved in your Vault' : 'Save to Vault'}
             className={`p-1.5 rounded-lg border transition-all ${
               idea.is_saved
                 ? 'bg-amber-500/20 border-amber-500/40 text-amber-300'
@@ -179,21 +207,22 @@ export const IdeaCard: React.FC<IdeaCardProps> = ({
             <Bookmark className={`w-3.5 h-3.5 ${idea.is_saved ? 'fill-amber-400 text-amber-400' : ''}`} />
           </button>
 
-          {/* Share Button */}
+          {/* Share Poster's Idea */}
           <button
             onClick={() => onShare(idea)}
-            title="Share Idea"
+            title="Share Poster's Idea"
             className="p-1.5 rounded-lg bg-white/5 hover:bg-cyan-500/15 text-gray-400 hover:text-cyan-300 transition-colors border border-white/5"
           >
             <Share2 className="w-3.5 h-3.5" />
           </button>
         </div>
 
+        {/* Collaboration & Blueprint Links */}
         <div className="flex items-center gap-2">
-          {/* Collaborate Button */}
+          {/* Collaborate with Poster */}
           <button
             onClick={() => onCollaborate(idea)}
-            title="Collaborate on this idea"
+            title="Collaborate with Idea Poster"
             className="flex items-center gap-1.5 text-[11px] px-3 py-1 rounded-lg bg-purple-600/20 hover:bg-purple-600/50 text-purple-200 border border-purple-500/30 font-semibold transition-all hover:scale-105 shadow-sm"
           >
             <Users className="w-3.5 h-3.5 text-cyan-400" />
@@ -208,8 +237,8 @@ export const IdeaCard: React.FC<IdeaCardProps> = ({
           {/* View Blueprint Details */}
           <button
             onClick={() => onViewDetail(idea)}
-            className="text-gray-400 hover:text-white p-1 text-xs"
-            title="Open Blueprint & Journey"
+            className="text-gray-400 hover:text-white p-1 text-xs transition-colors"
+            title="Open Full 22-Field Execution Model"
           >
             <ExternalLink className="w-3.5 h-3.5" />
           </button>

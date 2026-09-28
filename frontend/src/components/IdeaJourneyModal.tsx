@@ -31,6 +31,7 @@ interface IdeaJourneyModalProps {
   onClose: () => void;
   onOpenNovaWithContext: (idea: Idea) => void;
   onOpenCollab: (idea: Idea) => void;
+  onFollowPoster?: (userId: string) => void;
   currentUser: any;
 }
 
@@ -49,6 +50,7 @@ export const IdeaJourneyModal: React.FC<IdeaJourneyModalProps> = ({
   onClose,
   onOpenNovaWithContext,
   onOpenCollab,
+  onFollowPoster,
   currentUser,
 }) => {
   const [activeTab, setActiveTab] = useState<'blueprint' | 'poll' | 'collabs' | 'talent' | 'schemes' | 'comments'>('blueprint');
@@ -133,7 +135,7 @@ export const IdeaJourneyModal: React.FC<IdeaJourneyModalProps> = ({
     e.preventDefault();
     if (!newComment.trim()) return;
     try {
-      const res = await api.postComment(idea.id, newComment.trim());
+      await api.postComment(idea.id, newComment.trim());
       const added = {
         id: String(Date.now()),
         username: currentUser?.username || 'innovator',
@@ -181,10 +183,28 @@ export const IdeaJourneyModal: React.FC<IdeaJourneyModalProps> = ({
                   {idea.category}
                 </span>
               </div>
-              <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-2">
-                <span>By @{idea.username}</span>
+              <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-2 flex-wrap">
+                <span className="flex items-center gap-1.5">
+                  <span className="text-[10px] bg-gradient-to-r from-amber-500/30 to-orange-500/30 text-amber-300 border border-amber-500/40 px-1.5 py-0.2 rounded font-extrabold uppercase">
+                    💡 Idea Poster
+                  </span>
+                  <span className="text-white font-semibold">{idea.display_name}</span>
+                  <span className="text-gray-400">(@{idea.username})</span>
+                </span>
                 <span>•</span>
                 <span>Stage: {STAGES[activeStageIdx]?.label}</span>
+                {onFollowPoster && currentUser?.id !== idea.user_id && (
+                  <button
+                    onClick={() => onFollowPoster(idea.user_id)}
+                    className={`text-[10px] px-2.5 py-0.5 rounded-full flex items-center gap-1 transition-all ml-1 ${
+                      idea.is_following_author
+                        ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-semibold'
+                        : 'bg-white/10 hover:bg-white/20 text-white border border-white/20'
+                    }`}
+                  >
+                    {idea.is_following_author ? '✓ Following Poster' : '+ Follow Poster'}
+                  </button>
+                )}
               </p>
             </div>
           </div>
@@ -751,21 +771,37 @@ export const IdeaJourneyModal: React.FC<IdeaJourneyModalProps> = ({
           {/* TAB 6: COMMENTS & OPINIONS */}
           {activeTab === 'comments' && (
             <div className="space-y-4">
+              <div className="p-3.5 bg-purple-950/30 border border-purple-500/20 rounded-xl text-xs space-y-1">
+                <span className="font-bold text-white flex items-center gap-1.5">
+                  <Target className="w-3.5 h-3.5 text-cyan-400" />
+                  Community Reviews &amp; Opinions
+                </span>
+                <p className="text-[11px] text-gray-400">
+                  Any User can share reviews, feedback, or suggestions directly with the Idea Poster.
+                </p>
+              </div>
+
               <form onSubmit={handlePostComment} className="flex gap-2">
                 <input
                   type="text"
                   value={newComment}
                   onChange={(e) => setNewComment(e.target.value)}
-                  placeholder="Share your opinion, critique, or advice on this idea..."
+                  placeholder={
+                    currentUser?.id === idea.user_id
+                      ? "Reply to community users as the Idea Poster..."
+                      : `Comment on @${idea.username}'s posted idea as a User...`
+                  }
                   className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-purple-500"
                 />
                 <button
                   type="submit"
                   disabled={!newComment.trim()}
-                  className="gradient-btn text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1 disabled:opacity-50"
+                  className="gradient-btn text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 disabled:opacity-50"
                 >
-                  <Send className="w-3.5 h-3.5" />
-                  <span>Post Opinion</span>
+                  <Send className="w-3.5 h-3.5 text-white" />
+                  <span className="btn-keep-white">
+                    {currentUser?.id === idea.user_id ? 'Post as Poster' : 'Post as User'}
+                  </span>
                 </button>
               </form>
 
@@ -775,15 +811,47 @@ export const IdeaJourneyModal: React.FC<IdeaJourneyModalProps> = ({
                     No community opinions yet. Share your thoughts!
                   </div>
                 ) : (
-                  comments.map((c) => (
-                    <div key={c.id} className="p-3 rounded-xl bg-white/[0.03] border border-white/10 space-y-1">
-                      <div className="flex items-center justify-between text-[11px]">
-                        <span className="font-bold text-purple-300">{c.display_name || c.username || 'Innovator'}</span>
-                        <span className="text-gray-500 text-[10px]">{c.created_at}</span>
+                  comments.map((c) => {
+                    const isPoster = c.user_id === idea.user_id || c.username === idea.username;
+                    const isMe = c.username === currentUser?.username;
+                    return (
+                      <div
+                        key={c.id}
+                        className={`p-3 rounded-xl border space-y-1 transition-all ${
+                          isPoster
+                            ? 'bg-amber-950/20 border-amber-500/30 shadow-sm'
+                            : 'bg-white/[0.03] border-white/10'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between text-[11px] flex-wrap gap-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-white">
+                              {c.display_name || c.username || 'User'}
+                            </span>
+                            <span className="text-gray-400 text-[10px]">@{c.username}</span>
+
+                            {isPoster ? (
+                              <span className="text-[9px] bg-amber-500/20 text-amber-300 border border-amber-500/40 px-1.5 py-0.2 rounded font-extrabold">
+                                💡 Poster
+                              </span>
+                            ) : (
+                              <span className="text-[9px] bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 px-1.5 py-0.2 rounded font-medium">
+                                👤 User
+                              </span>
+                            )}
+
+                            {isMe && (
+                              <span className="text-[9px] bg-purple-500/20 text-purple-300 px-1 rounded font-semibold">
+                                You
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-gray-500 text-[10px]">{c.created_at || 'Recently'}</span>
+                        </div>
+                        <p className="text-xs text-gray-200 leading-relaxed pl-1 whitespace-pre-line">{c.content}</p>
                       </div>
-                      <p className="text-xs text-gray-200 leading-relaxed">{c.content}</p>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
             </div>
