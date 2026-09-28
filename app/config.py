@@ -42,9 +42,11 @@ class Settings(BaseSettings):
     ]
     
     # AI Providers
-    DEFAULT_AI_PROVIDER: str = "local"  # 'local' or 'gemini'
-    GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
-    GEMINI_MODEL: str = "gemini-2.5-flash"
+    DEFAULT_AI_PROVIDER: str = "gemini"  # 'local' or 'gemini'
+    GEMINI_API_KEY: str = ""
+    GEMINI_MODEL: str = "gemini-3.8-flash"
+    SUPABASE_URL: str = ""
+    SUPABASE_KEY: str = ""
     
     # Feature Flags
     ENABLE_REALTIME_WEBSOCKETS: bool = True

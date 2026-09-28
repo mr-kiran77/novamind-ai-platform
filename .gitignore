@@ -32,3 +32,11 @@ desktop.ini
 
 # Logs
 *.log
+
+# Node & Frontend dependencies & builds
+node_modules/
+**/node_modules/
+.npm
+dist/
+**/dist/
+.rolldown-cache/

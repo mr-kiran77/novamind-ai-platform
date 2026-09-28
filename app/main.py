@@ -53,6 +53,10 @@ app.add_middleware(
 static_dir = Path(__file__).resolve().parent / "static"
 app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
+react_dist_dir = Path(__file__).resolve().parent.parent / "frontend" / "dist"
+if react_dist_dir.exists():
+    app.mount("/app", StaticFiles(directory=str(react_dist_dir), html=True), name="react_app")
+
 # Include Routers
 app.include_router(auth.router)
 app.include_router(ideas.router)

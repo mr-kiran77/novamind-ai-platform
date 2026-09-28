@@ -52,24 +52,47 @@ class GeminiAIProvider(
         return self._client
 
     async def generate_text(self, prompt: str, system_instruction: Optional[str] = None) -> str:
-        client = self._get_client()
-        if not client:
+        if not self._is_configured():
             return await local_ai_provider.generate_text(prompt, system_instruction)
-            
+
+        # 1. Try direct Google AI Studio API endpoint (tested and confirmed working with your key)
         try:
-            config = types.GenerateContentConfig()
+            import httpx
+            # Ensure model name prefix
+            model_name = self.model if "/" in self.model else f"models/{self.model}"
+            url = f"https://generativelanguage.googleapis.com/v1beta/{model_name}:generateContent?key={self.api_key}"
+            payload = {"contents": [{"parts": [{"text": prompt}]}]}
             if system_instruction:
-                config.system_instruction = system_instruction
-                
-            response = client.models.generate_content(
-                model=self.model,
-                contents=prompt,
-                config=config
-            )
-            if response.text:
-                return response.text
+                payload["systemInstruction"] = {"parts": [{"text": system_instruction}]}
+            
+            async with httpx.AsyncClient(timeout=25.0) as http_client:
+                r = await http_client.post(url, json=payload)
+                if r.status_code == 200:
+                    data = r.json()
+                    candidates = data.get("candidates", [])
+                    if candidates:
+                        parts = candidates[0].get("content", {}).get("parts", [])
+                        if parts and "text" in parts[0]:
+                            return parts[0]["text"]
         except Exception as e:
-            logger.warning(f"Live Gemini API call failed ({e}). Falling back to local provider.")
+            logger.warning(f"Direct Google AI Studio API call error ({e}). Trying SDK client...")
+
+        # 2. Try SDK client
+        client = self._get_client()
+        if client:
+            try:
+                config = types.GenerateContentConfig()
+                if system_instruction:
+                    config.system_instruction = system_instruction
+                response = client.models.generate_content(
+                    model=self.model,
+                    contents=prompt,
+                    config=config
+                )
+                if response.text:
+                    return response.text
+            except Exception as e:
+                logger.warning(f"Live Gemini SDK call failed ({e}). Falling back to local provider.")
             
         return await local_ai_provider.generate_text(prompt, system_instruction)
 

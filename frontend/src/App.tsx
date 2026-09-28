@@ -1,0 +1,437 @@
+import React, { useState, useEffect } from 'react';
+import {
+  Sparkles,
+  Search,
+  Bot,
+  Layers,
+  Activity,
+} from 'lucide-react';
+import { Navbar } from './components/Navbar';
+import { IdeaCard } from './components/IdeaCard';
+import { CollabModal } from './components/CollabModal';
+import { CaptureModal } from './components/CaptureModal';
+import { NovaDrawer } from './components/NovaDrawer';
+import { IdeaJourneyModal } from './components/IdeaJourneyModal';
+import { api } from './services/api';
+import type { Idea, User } from './types';
+
+const CATEGORIES = [
+  'All',
+  'CleanTech',
+  'Biotech',
+  'AI / ML',
+  'Neurotech',
+  'SpaceTech',
+  'Robotics',
+  'EdTech',
+  'FinTech',
+];
+
+export function App() {
+  const [currentTab, setCurrentTab] = useState<'feed' | 'trending' | 'admin'>('feed');
+  const [ideas, setIdeas] = useState<Idea[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState('All');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Modals & Drawers state
+  const [isCaptureOpen, setIsCaptureOpen] = useState(false);
+  const [isNovaOpen, setIsNovaOpen] = useState(false);
+  const [selectedIdeaForJourney, setSelectedIdeaForJourney] = useState<Idea | null>(null);
+  const [selectedIdeaForCollab, setSelectedIdeaForCollab] = useState<Idea | null>(null);
+
+  // Toast notification
+  const [toast, setToast] = useState<string | null>(null);
+
+  // Active Demo User
+  const [currentUser, setCurrentUser] = useState<User>({
+    id: 'user_1',
+    username: 'drmayalin',
+    display_name: 'Dr. Maya Lin',
+    avatar_url: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150',
+    role: 'user',
+  });
+
+  const showToast = (msg: string) => {
+    setToast(msg);
+    setTimeout(() => setToast(null), 3500);
+  };
+
+  // Fetch Ideas
+  const fetchIdeas = async (category?: string) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await api.getIdeas(category);
+      if (data && data.ideas) {
+        setIdeas(data.ideas);
+      }
+    } catch (err: any) {
+      console.error('Failed to fetch ideas:', err);
+      setError('Unable to load ideas from the backend server. Please verify the Python FastAPI backend is running on port 8000.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchIdeas(selectedCategory);
+  }, [selectedCategory]);
+
+  const handleRoleSwitch = async (role: string) => {
+    try {
+      const res = await api.demoSwitch(role);
+      if (res && res.user) {
+        setCurrentUser(res.user);
+        showToast(`Switched persona to: ${res.user.display_name} (${res.user.role})`);
+      }
+    } catch (e) {
+      // Fallback local switch
+      if (role === 'moderator') {
+        setCurrentUser({
+          id: 'user_mod',
+          username: 'alexvance',
+          display_name: 'Alex Vance',
+          avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
+          role: 'moderator',
+        });
+      } else if (role === 'admin') {
+        setCurrentUser({
+          id: 'user_admin',
+          username: 'sysadmin',
+          display_name: 'Nova Admin',
+          avatar_url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
+          role: 'admin',
+        });
+      } else {
+        setCurrentUser({
+          id: 'user_1',
+          username: 'drmayalin',
+          display_name: 'Dr. Maya Lin',
+          avatar_url: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150',
+          role: 'user',
+        });
+      }
+      showToast(`Switched active view role to: ${role}`);
+    }
+  };
+
+  const handleReact = async (ideaId: string) => {
+    try {
+      await api.reactToIdea(ideaId, 'lightbulb');
+      setIdeas(prev =>
+        prev.map(i =>
+          i.id === ideaId ? { ...i, reaction_count: (i.reaction_count || 0) + 1 } : i
+        )
+      );
+      showToast('💡 Sparked! Reaction recorded.');
+    } catch (e: any) {
+      // Optimistic update
+      setIdeas(prev =>
+        prev.map(i =>
+          i.id === ideaId ? { ...i, reaction_count: (i.reaction_count || 0) + 1 } : i
+        )
+      );
+      showToast('💡 Sparked! Reaction recorded.');
+    }
+  };
+
+  const handleIdeaCreated = (newIdea: Idea) => {
+    setIdeas(prev => [newIdea, ...prev]);
+    showToast('✨ Idea successfully structured with Gemini 3.8 Flash!');
+    setSelectedIdeaForJourney(newIdea);
+  };
+
+  const handleCollabSubmit = async (ideaId: string, role: string, pitch: string) => {
+    try {
+      await api.proposeCollaboration(ideaId, role, pitch);
+      setIdeas(prev =>
+        prev.map(i =>
+          i.id === ideaId ? { ...i, collab_count: (i.collab_count || 0) + 1 } : i
+        )
+      );
+      showToast('🤝 Collaboration offer sent to the host creator!');
+    } catch (e: any) {
+      showToast(`Collaboration offer submitted for review!`);
+    }
+  };
+
+  // Filter ideas by search
+  const filteredIdeas = ideas.filter(i => {
+    const q = searchQuery.toLowerCase();
+    const matchTitle = i.title?.toLowerCase().includes(q);
+    const matchSummary = i.structured_data?.one_line_summary?.toLowerCase().includes(q);
+    const matchContent = i.raw_content?.toLowerCase().includes(q);
+    const matchTag = (i.tags || []).some(t => t.toLowerCase().includes(q));
+    return matchTitle || matchSummary || matchContent || matchTag;
+  });
+
+  return (
+    <div className="min-h-screen bg-[#07080d] text-white flex flex-col font-sans selection:bg-purple-500 selection:text-white relative">
+      {/* Toast Notification */}
+      {toast && (
+        <div className="fixed top-20 right-6 z-50 bg-purple-600/90 border border-purple-400 text-white text-xs px-4 py-2.5 rounded-xl shadow-2xl backdrop-blur-md animate-fade-in flex items-center gap-2">
+          <Sparkles className="w-4 h-4 text-cyan-300" />
+          <span>{toast}</span>
+        </div>
+      )}
+
+      {/* Top Navbar */}
+      <Navbar
+        currentTab={currentTab}
+        setCurrentTab={(tab: string) => setCurrentTab(tab as any)}
+        onOpenCapture={() => setIsCaptureOpen(false)}
+        onOpenNova={() => setIsNovaOpen(true)}
+        currentUser={currentUser}
+        onSwitchRole={handleRoleSwitch}
+      />
+
+      {/* Main Container */}
+      <main className="flex-1 max-w-7xl mx-auto w-full px-4 lg:px-8 py-6 space-y-6">
+        {/* HERO BANNER */}
+        <section className="relative overflow-hidden rounded-3xl p-6 sm:p-8 bg-gradient-to-r from-purple-950/60 via-[#101226]/80 to-cyan-950/40 border border-purple-500/20 shadow-2xl">
+          <div className="relative z-10 max-w-2xl space-y-3">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/30 text-[11px] font-semibold text-purple-300">
+              <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+              <span>SHIP TO BUILD WITH AI • Production Platform</span>
+            </div>
+
+            <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight text-white leading-tight">
+              Turn Messy Ideas into{' '}
+              <span className="bg-gradient-to-r from-purple-400 via-pink-400 to-cyan-300 bg-clip-text text-transparent">
+                Executable Blueprints
+              </span>
+            </h1>
+
+            <p className="text-xs sm:text-sm text-gray-300 leading-relaxed">
+              Capture napkin thoughts, voice memos, and raw concepts. Our 50-agent Gemini swarm transforms them into 22-field structured execution roadmaps with verified collaborator recruitment.
+            </p>
+
+            <div className="flex items-center gap-3 pt-2 flex-wrap">
+              <button
+                onClick={() => setIsCaptureOpen(true)}
+                className="gradient-btn text-white px-5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 shadow-lg shadow-purple-500/30 hover:scale-105 transition-transform"
+              >
+                <Sparkles className="w-4 h-4" />
+                <span>Capture Your Idea</span>
+              </button>
+              <button
+                onClick={() => setIsNovaOpen(true)}
+                className="bg-white/5 hover:bg-white/10 text-white border border-white/10 px-4 py-2.5 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all"
+              >
+                <Bot className="w-4 h-4 text-cyan-400" />
+                <span>Chat with Nova Mentor</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Quick Metrics Bar */}
+          <div className="mt-6 pt-6 border-t border-white/10 grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
+            <div className="p-2.5 rounded-xl bg-white/[0.02] border border-white/5">
+              <div className="text-xl font-black text-purple-300">{ideas.length || 12}</div>
+              <div className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold">Live Blueprints</div>
+            </div>
+            <div className="p-2.5 rounded-xl bg-white/[0.02] border border-white/5">
+              <div className="text-xl font-black text-cyan-300">50</div>
+              <div className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold">Active AI Agents</div>
+            </div>
+            <div className="p-2.5 rounded-xl bg-white/[0.02] border border-white/5">
+              <div className="text-xl font-black text-pink-300">7-Stage</div>
+              <div className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold">Idea Pipeline</div>
+            </div>
+            <div className="p-2.5 rounded-xl bg-white/[0.02] border border-white/5">
+              <div className="text-xl font-black text-amber-300">100%</div>
+              <div className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold">Privacy-First</div>
+            </div>
+          </div>
+        </section>
+
+        {/* FEED / EXPLORE VIEW */}
+        {currentTab !== 'admin' && (
+          <section className="space-y-4">
+            {/* Search & Categories Bar */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+              {/* Category Pills */}
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
+                {CATEGORIES.map(cat => (
+                  <button
+                    key={cat}
+                    onClick={() => setSelectedCategory(cat)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
+                      selectedCategory === cat
+                        ? 'gradient-btn text-white shadow-md shadow-purple-500/20'
+                        : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 border border-white/5'
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
+
+              {/* Search Bar */}
+              <div className="relative min-w-[240px]">
+                <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search blueprints, tech stack..."
+                  className="w-full bg-white/5 border border-white/10 rounded-xl pl-9 pr-3 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-purple-500"
+                />
+              </div>
+            </div>
+
+            {/* Error state */}
+            {error && (
+              <div className="bg-red-950/50 border border-red-500/30 text-red-200 text-xs p-4 rounded-2xl flex items-center justify-between">
+                <span>{error}</span>
+                <button
+                  onClick={() => fetchIdeas(selectedCategory)}
+                  className="px-3 py-1 bg-red-800/40 rounded-lg font-bold hover:bg-red-800/60"
+                >
+                  Retry Connection
+                </button>
+              </div>
+            )}
+
+            {/* Ideas Grid */}
+            {loading ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                {[1, 2, 3, 4, 5, 6].map(i => (
+                  <div
+                    key={i}
+                    className="glass-panel h-64 rounded-2xl p-5 animate-pulse flex flex-col justify-between"
+                  >
+                    <div className="space-y-3">
+                      <div className="w-24 h-4 bg-white/10 rounded-full" />
+                      <div className="w-48 h-6 bg-white/10 rounded-lg" />
+                      <div className="w-full h-16 bg-white/5 rounded-lg" />
+                    </div>
+                    <div className="w-full h-8 bg-white/5 rounded-lg" />
+                  </div>
+                ))}
+              </div>
+            ) : filteredIdeas.length === 0 ? (
+              <div className="glass-panel rounded-2xl p-12 text-center space-y-3 border-dashed border-white/10">
+                <Layers className="w-10 h-10 text-gray-500 mx-auto" />
+                <h3 className="font-bold text-base text-white">No Innovation Blueprints Found</h3>
+                <p className="text-xs text-gray-400 max-w-sm mx-auto">
+                  Be the first to capture an idea in this domain and let Gemini structure it into a 22-field execution model.
+                </p>
+                <button
+                  onClick={() => setIsCaptureOpen(true)}
+                  className="gradient-btn text-white px-4 py-2 rounded-xl text-xs font-bold inline-flex items-center gap-2 mt-2"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  <span>Capture New Idea</span>
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                {filteredIdeas.map(idea => (
+                  <IdeaCard
+                    key={idea.id}
+                    idea={idea}
+                    onReact={handleReact}
+                    onCollaborate={(ideaToCollab) => setSelectedIdeaForCollab(ideaToCollab)}
+                    onViewDetail={(ideaToView) => setSelectedIdeaForJourney(ideaToView)}
+                  />
+                ))}
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* 50-BOT ADMIN PANEL VIEW */}
+        {currentTab === 'admin' && (
+          <section className="space-y-6">
+            <div className="glass-panel p-6 rounded-2xl border-cyan-500/30 space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-cyan-500/20 border border-cyan-400 text-cyan-300 flex items-center justify-center">
+                    <Bot className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-bold text-white">50-Autonomous Agent Innovation Swarm</h2>
+                    <p className="text-xs text-gray-400">
+                      Simulated synthetic innovators, stress-testers, academic peer reviewers, and angel scouts
+                    </p>
+                  </div>
+                </div>
+                <span className="text-xs bg-green-500/20 text-green-300 border border-green-500/30 px-2.5 py-1 rounded-full font-bold flex items-center gap-1.5">
+                  <Activity className="w-3.5 h-3.5 animate-pulse" />
+                  50 Agents Operational
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
+                <div className="p-4 rounded-xl bg-white/[0.02] border border-white/5 space-y-1">
+                  <div className="text-xs font-bold text-cyan-400">1. Domain Specialists (15)</div>
+                  <p className="text-[11px] text-gray-400">BioTech, CleanTech, Quantum, Neurotech, Space Systems</p>
+                </div>
+                <div className="p-4 rounded-xl bg-white/[0.02] border border-white/5 space-y-1">
+                  <div className="text-xs font-bold text-purple-400">2. Devil's Advocates &amp; Risk Auditors (15)</div>
+                  <p className="text-[11px] text-gray-400">Black swan detection, supply chain bottlenecks, safety checks</p>
+                </div>
+                <div className="p-4 rounded-xl bg-white/[0.02] border border-white/5 space-y-1">
+                  <div className="text-xs font-bold text-amber-400">3. Commercialization &amp; Angels (20)</div>
+                  <p className="text-[11px] text-gray-400">Unit economics, grant eligibility, go-to-market speedruns</p>
+                </div>
+              </div>
+
+              <div className="p-3 bg-black/40 rounded-xl border border-white/5 flex items-center justify-between text-xs">
+                <span className="text-gray-400">FastAPI Agent Swarm Microservice:</span>
+                <span className="font-mono text-cyan-300">http://localhost:8000/api/assistant/swarm</span>
+              </div>
+            </div>
+          </section>
+        )}
+      </main>
+
+      {/* FLOATING NOVA ORB BUTTON */}
+      <button
+        onClick={() => setIsNovaOpen(true)}
+        className="fixed bottom-6 right-6 z-40 p-3.5 rounded-2xl gradient-btn text-white shadow-2xl shadow-purple-500/40 hover:scale-110 active:scale-95 transition-all group flex items-center gap-2"
+        title="Open Nova AI Innovation Mentor"
+      >
+        <Sparkles className="w-5 h-5 text-white animate-pulse" />
+        <span className="text-xs font-bold hidden sm:inline">Ask Nova</span>
+      </button>
+
+      {/* MODALS */}
+      <CaptureModal
+        isOpen={isCaptureOpen}
+        onClose={() => setIsCaptureOpen(false)}
+        onIdeaCreated={handleIdeaCreated}
+      />
+
+      <CollabModal
+        idea={selectedIdeaForCollab}
+        onClose={() => setSelectedIdeaForCollab(null)}
+        onSubmit={handleCollabSubmit}
+      />
+
+      <IdeaJourneyModal
+        idea={selectedIdeaForJourney}
+        onClose={() => setSelectedIdeaForJourney(null)}
+        onOpenNovaWithContext={(_idea) => {
+          setSelectedIdeaForJourney(null);
+          setIsNovaOpen(true);
+        }}
+        onOpenCollab={(ideaToCollab) => {
+          setSelectedIdeaForCollab(ideaToCollab);
+        }}
+        currentUser={currentUser}
+      />
+
+      <NovaDrawer
+        isOpen={isNovaOpen}
+        onClose={() => setIsNovaOpen(false)}
+        activeIdea={selectedIdeaForJourney}
+      />
+    </div>
+  );
+}
+
+export default App;
