@@ -17,6 +17,9 @@ import { IdeaJourneyModal } from './components/IdeaJourneyModal';
 import { ShareModal } from './components/ShareModal';
 import { DiscoverView } from './components/DiscoverView';
 import { ModerationView } from './components/ModerationView';
+import { ProfileModal } from './components/ProfileModal';
+import { EditProfileModal } from './components/EditProfileModal';
+import { SettingsModal } from './components/SettingsModal';
 import { api } from './services/api';
 import type { Idea, User } from './types';
 
@@ -48,6 +51,14 @@ export function App() {
   const [selectedIdeaForCollab, setSelectedIdeaForCollab] = useState<Idea | null>(null);
   const [selectedIdeaForShare, setSelectedIdeaForShare] = useState<Idea | null>(null);
 
+  // Profile & Settings Modals state
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [viewProfileUsername, setViewProfileUsername] = useState<string | undefined>(undefined);
+  const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [settingsInitialTab, setSettingsInitialTab] = useState<string>('account');
+  const [currentTheme, setCurrentTheme] = useState<'dark' | 'light' | 'system'>('dark');
+
   // Toast notification
   const [toast, setToast] = useState<string | null>(null);
 
@@ -64,6 +75,34 @@ export function App() {
     setToast(msg);
     setTimeout(() => setToast(null), 3500);
   };
+
+  // Theme application
+  const applyTheme = (theme: 'dark' | 'light' | 'system') => {
+    setCurrentTheme(theme);
+    localStorage.setItem('novamind_theme', theme);
+    const root = document.documentElement;
+    if (theme === 'light') {
+      root.classList.remove('dark');
+      root.classList.add('light');
+    } else if (theme === 'system') {
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      if (prefersDark) {
+        root.classList.add('dark');
+        root.classList.remove('light');
+      } else {
+        root.classList.remove('dark');
+        root.classList.add('light');
+      }
+    } else {
+      root.classList.add('dark');
+      root.classList.remove('light');
+    }
+  };
+
+  useEffect(() => {
+    const savedTheme = (localStorage.getItem('novamind_theme') as any) || 'dark';
+    applyTheme(savedTheme);
+  }, []);
 
   // Fetch Ideas
   const fetchIdeas = async (category?: string) => {
@@ -229,6 +268,20 @@ export function App() {
         onOpenNova={() => setIsNovaOpen(true)}
         currentUser={currentUser}
         onSwitchRole={handleRoleSwitch}
+        onOpenProfile={() => {
+          setViewProfileUsername(undefined);
+          setIsProfileOpen(true);
+        }}
+        onOpenEditProfile={() => setIsEditProfileOpen(true)}
+        onOpenSettings={(tab?: string) => {
+          setSettingsInitialTab(tab || 'account');
+          setIsSettingsOpen(true);
+        }}
+        onLogout={() => {
+          localStorage.removeItem('novamind_token');
+          showToast('Logged out of session. Switched to public guest mode.');
+        }}
+        currentTheme={currentTheme}
       />
 
       {/* Main Container */}
@@ -436,6 +489,7 @@ export function App() {
                     <IdeaCard
                       key={idea.id}
                       idea={idea}
+                      currentUser={currentUser}
                       onLike={handleLike}
                       onComment={(ideaToComment) => setSelectedIdeaForJourney(ideaToComment)}
                       onShare={(ideaToShare) => setSelectedIdeaForShare(ideaToShare)}
@@ -443,6 +497,10 @@ export function App() {
                       onFollow={handleFollow}
                       onCollaborate={(ideaToCollab) => setSelectedIdeaForCollab(ideaToCollab)}
                       onViewDetail={(ideaToView) => setSelectedIdeaForJourney(ideaToView)}
+                      onViewProfile={(username) => {
+                        setViewProfileUsername(username);
+                        setIsProfileOpen(true);
+                      }}
                     />
                   ))}
                 </div>
@@ -542,6 +600,52 @@ export function App() {
         isOpen={isNovaOpen}
         onClose={() => setIsNovaOpen(false)}
         activeIdea={selectedIdeaForJourney}
+      />
+
+      {/* User Profile View Modal */}
+      <ProfileModal
+        isOpen={isProfileOpen}
+        onClose={() => {
+          setIsProfileOpen(false);
+          setViewProfileUsername(undefined);
+        }}
+        currentUser={currentUser}
+        viewUsername={viewProfileUsername}
+        onOpenEditProfile={() => {
+          setIsProfileOpen(false);
+          setIsEditProfileOpen(true);
+        }}
+        onViewIdeaDetail={(ideaToView) => {
+          setIsProfileOpen(false);
+          setSelectedIdeaForJourney(ideaToView);
+        }}
+        onFollowChange={(targetUserId) => {
+          handleFollow(targetUserId);
+        }}
+      />
+
+      {/* Edit Profile Details & Avatar Modal */}
+      <EditProfileModal
+        isOpen={isEditProfileOpen}
+        onClose={() => setIsEditProfileOpen(false)}
+        currentUser={currentUser}
+        onUserUpdated={(updatedUser) => {
+          setCurrentUser(updatedUser);
+        }}
+        showToast={showToast}
+      />
+
+      {/* Settings & Preferences Tabbed Modal */}
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        currentUser={currentUser}
+        initialTab={settingsInitialTab}
+        onThemeChanged={applyTheme}
+        showToast={showToast}
+        onUserDeleted={() => {
+          handleRoleSwitch('user');
+        }}
       />
     </div>
   );

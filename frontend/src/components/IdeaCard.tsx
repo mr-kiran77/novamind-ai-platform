@@ -9,12 +9,15 @@ import {
   UserPlus,
   UserCheck,
   BarChart3,
+  Sparkles,
 } from 'lucide-react';
 import type { Idea } from '../types';
 import { PollWidget } from './PollWidget';
+import { ProfileAvatar } from './ProfileAvatar';
 
 interface IdeaCardProps {
   idea: Idea;
+  currentUser?: any;
   onLike: (id: string) => void;
   onComment: (idea: Idea) => void;
   onShare: (idea: Idea) => void;
@@ -22,10 +25,12 @@ interface IdeaCardProps {
   onFollow: (userId: string) => void;
   onCollaborate: (idea: Idea) => void;
   onViewDetail: (idea: Idea) => void;
+  onViewProfile?: (username: string) => void;
 }
 
 export const IdeaCard: React.FC<IdeaCardProps> = ({
   idea,
+  currentUser,
   onLike,
   onComment,
   onShare,
@@ -33,8 +38,9 @@ export const IdeaCard: React.FC<IdeaCardProps> = ({
   onFollow,
   onCollaborate,
   onViewDetail,
+  onViewProfile,
 }) => {
-  const [showPoll, setShowPoll] = useState(false);
+  const [showPoll, setShowPoll] = useState(true);
   const summary = idea.structured_data?.one_line_summary || idea.raw_content;
 
   const stageLabels: Record<string, string> = {
@@ -53,14 +59,24 @@ export const IdeaCard: React.FC<IdeaCardProps> = ({
         {/* Creator Header with Follow Button */}
         <div className="flex items-center justify-between gap-2 mb-3">
           <div className="flex items-center gap-2.5">
-            <img
-              src={idea.avatar_url || 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150'}
-              alt={idea.display_name}
-              className="w-9 h-9 rounded-xl object-cover border border-purple-500/30"
-            />
+            <div
+              className="cursor-pointer transition-transform hover:scale-105"
+              onClick={() => onViewProfile && onViewProfile(idea.username)}
+              title={`View @${idea.username}'s profile`}
+            >
+              <ProfileAvatar
+                name={idea.display_name}
+                username={idea.username}
+                avatarUrl={idea.avatar_url}
+                size="sm"
+              />
+            </div>
             <div>
               <div className="flex items-center gap-1.5">
-                <span className="text-xs font-bold text-white group-hover:text-purple-300 transition-colors block">
+                <span
+                  onClick={() => onViewProfile && onViewProfile(idea.username)}
+                  className="text-xs font-bold text-white group-hover:text-purple-300 hover:underline cursor-pointer transition-colors block"
+                >
                   {idea.display_name}
                 </span>
                 {/* Follow Button */}
@@ -129,12 +145,33 @@ export const IdeaCard: React.FC<IdeaCardProps> = ({
               <span>Poll ({idea.poll.total_votes} votes)</span>
             </button>
           )}
+
+          {/* Idea Copilot Badge */}
+          {idea.copilot_status === 'COMPLETED' ? (
+            <button
+              onClick={() => onViewDetail(idea)}
+              className="text-[10px] bg-gradient-to-r from-purple-500/20 to-cyan-500/20 text-cyan-300 border border-cyan-500/40 px-2 py-0.5 rounded-full font-bold flex items-center gap-1 shadow-sm shadow-cyan-500/20 hover:border-cyan-400 transition-all"
+              title="Idea Copilot Intelligence Ready"
+            >
+              <Sparkles className="w-3 h-3 text-cyan-400" />
+              <span>Copilot Intel</span>
+            </button>
+          ) : idea.copilot_status && ['PENDING', 'ANALYZING_IDEA', 'RESEARCHING', 'SYNTHESIZING'].includes(idea.copilot_status) ? (
+            <button
+              onClick={() => onViewDetail(idea)}
+              className="text-[10px] bg-purple-500/20 text-purple-300 border border-purple-500/40 px-2 py-0.5 rounded-full font-semibold flex items-center gap-1 animate-pulse"
+              title="Idea Copilot is analyzing in the background"
+            >
+              <Sparkles className="w-3 h-3 text-purple-400 animate-spin" />
+              <span>Copilot Researching...</span>
+            </button>
+          ) : null}
         </div>
 
-        {/* Optional Expandable Poll */}
-        {showPoll && (
+        {/* Native Poll Presentation */}
+        {idea.poll && showPoll && (
           <div className="mt-3">
-            <PollWidget ideaId={idea.id} initialPoll={idea.poll} canCreate={false} />
+            <PollWidget ideaId={idea.id} initialPoll={idea.poll} canCreate={false} currentUser={currentUser} />
           </div>
         )}
       </div>

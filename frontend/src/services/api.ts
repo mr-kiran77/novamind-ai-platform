@@ -46,10 +46,29 @@ export const api = {
     return this.request<any>(`/api/ideas/${id}`);
   },
 
-  captureIdea(payload: { raw_content: string; raw_format: string; title?: string; category?: string }) {
+  captureIdea(payload: {
+    raw_content: string;
+    raw_format: string;
+    title?: string;
+    category?: string;
+    jurisdiction?: string;
+    poll?: { question: string; options: string[]; closes_at?: string };
+  }) {
     return this.request<any>('/api/ideas', {
       method: 'POST',
       body: JSON.stringify(payload),
+    });
+  },
+
+  // Idea Copilot Background Intelligence
+  getCopilotReport(ideaId: string) {
+    return this.request<any>(`/api/ideas/${ideaId}/copilot`);
+  },
+
+  runCopilot(ideaId: string, force: boolean = false, jurisdiction?: string) {
+    return this.request<any>(`/api/ideas/${ideaId}/copilot/run`, {
+      method: 'POST',
+      body: JSON.stringify({ force, jurisdiction: jurisdiction || undefined }),
     });
   },
 
@@ -89,10 +108,16 @@ export const api = {
     return this.request<{ poll: any | null }>(`/api/ideas/${ideaId}/poll`);
   },
 
-  createPoll(ideaId: string, question: string, options: string[]) {
+  createPoll(ideaId: string, question: string, options: string[], closes_at?: string) {
     return this.request<{ poll: any }>(`/api/ideas/${ideaId}/poll`, {
       method: 'POST',
-      body: JSON.stringify({ question, options }),
+      body: JSON.stringify({ question, options, closes_at: closes_at || null }),
+    });
+  },
+
+  deletePoll(pollId: string) {
+    return this.request<any>(`/api/ideas/polls/${pollId}`, {
+      method: 'DELETE',
     });
   },
 
@@ -103,10 +128,23 @@ export const api = {
     });
   },
 
-  // AI Collaborator Screening (Genuine vs Time-pass)
-  screenCollaborations(ideaId: string) {
-    return this.request<any>(`/api/ideas/${ideaId}/collaborations/ai-screen`, {
+  // AI Collaborator Screening (Structured Gemini Evaluation & Shortlisting)
+  screenCollaborations(ideaId: string, force: boolean = false) {
+    return this.request<any>(`/api/ideas/${ideaId}/collaborations/ai-screen?force=${force}`, {
       method: 'POST',
+    });
+  },
+
+  analyzeProposal(ideaId: string, collabId: string, force: boolean = false) {
+    return this.request<any>(`/api/ideas/${ideaId}/collaborations/${collabId}/analyze?force=${force}`, {
+      method: 'POST',
+    });
+  },
+
+  updateCollaborationStatus(collabId: string, status: 'accepted' | 'declined') {
+    return this.request<any>(`/api/ideas/collaborations/${collabId}/status`, {
+      method: 'PUT',
+      body: JSON.stringify({ status }),
     });
   },
 
@@ -185,5 +223,101 @@ export const api = {
     return this.request<any>(`/api/auth/demo-switch?role=${role}`, {
       method: 'POST',
     });
-  }
+  },
+
+  // User Profile & Settings Management
+  getUserProfile(username: string) {
+    return this.request<{
+      profile: any;
+      follower_count: number;
+      following_count: number;
+      is_following: boolean;
+      ideas: any[];
+    }>(`/api/users/${username}`);
+  },
+
+  updateProfile(data: Record<string, any>) {
+    return this.request<any>('/api/users/me', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  getUserSettings() {
+    return this.request<any>('/api/users/me/settings');
+  },
+
+  updateUserSettings(settings: Record<string, any>) {
+    return this.request<any>('/api/users/me/settings', {
+      method: 'PUT',
+      body: JSON.stringify(settings),
+    });
+  },
+
+  changePassword(current_password: string, new_password: string, confirm_password: string) {
+    return this.request<{ status: string; message: string }>('/api/users/me/change-password', {
+      method: 'POST',
+      body: JSON.stringify({ current_password, new_password, confirm_password }),
+    });
+  },
+
+  getSessions() {
+    return this.request<{ sessions: any[] }>('/api/users/me/sessions');
+  },
+
+  revokeSession(sessionId: string) {
+    return this.request<{ status: string; message: string }>(`/api/users/me/sessions/${sessionId}`, {
+      method: 'DELETE',
+    });
+  },
+
+  revokeAllOtherSessions() {
+    return this.request<{ status: string; message: string }>('/api/users/me/sessions/revoke-all-others', {
+      method: 'POST',
+    });
+  },
+
+  async uploadAvatar(file: File) {
+    const token = this.getToken();
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const res = await fetch(`${API_BASE}/api/users/me/avatar`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({ detail: 'Avatar upload failed' }));
+      throw new Error(errorData.detail || errorData.message || `HTTP ${res.status}`);
+    }
+
+    return res.json();
+  },
+
+  removeAvatar() {
+    return this.request<{ status: string; avatar_url: string; user: any; message: string }>('/api/users/me/avatar', {
+      method: 'DELETE',
+    });
+  },
+
+  submitFeedback(payload: { category: string; message: string; rating?: number; email?: string }) {
+    return this.request<{ status: string; id: string; message: string }>('/api/users/me/feedback', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  deleteAccount(password: string, confirm_phrase: string) {
+    return this.request<{ status: string; message: string }>('/api/users/me', {
+      method: 'DELETE',
+      body: JSON.stringify({ password, confirm_phrase }),
+    });
+  },
 };

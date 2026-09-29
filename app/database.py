@@ -368,11 +368,29 @@ def init_db():
             id TEXT PRIMARY KEY,
             idea_id TEXT NOT NULL,
             question TEXT NOT NULL,
-            options TEXT NOT NULL, -- JSON array of up to 4 options
+            options TEXT NOT NULL, -- JSON array of 2 to 6 options
+            closes_at TEXT, -- Optional ISO timestamp for poll closure
             created_by TEXT NOT NULL,
             created_at TEXT NOT NULL,
             FOREIGN KEY (idea_id) REFERENCES ideas(id) ON DELETE CASCADE,
             FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE
+        );
+        """)
+
+        # Migration: Add closes_at to polls if not present
+        cursor.execute("PRAGMA table_info(polls);")
+        poll_cols = [c["name"] for c in cursor.fetchall()]
+        if "closes_at" not in poll_cols:
+            cursor.execute("ALTER TABLE polls ADD COLUMN closes_at TEXT;")
+
+        # Poll Options table
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS poll_options (
+            id TEXT PRIMARY KEY,
+            poll_id TEXT NOT NULL,
+            option_index INTEGER NOT NULL,
+            option_text TEXT NOT NULL,
+            FOREIGN KEY (poll_id) REFERENCES polls(id) ON DELETE CASCADE
         );
         """)
 
@@ -401,6 +419,84 @@ def init_db():
         if "ai_skills_matched" not in collab_cols:
             cursor.execute("ALTER TABLE collaborations ADD COLUMN ai_skills_matched TEXT DEFAULT '[]';")
 
+        # 23. AI Collaboration Proposal Analysis (Structured Schema & Caching)
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS collaboration_analyses (
+            id TEXT PRIMARY KEY,
+            collaboration_id TEXT UNIQUE NOT NULL,
+            idea_id TEXT NOT NULL,
+            overall_score INTEGER NOT NULL,
+            relevance_score INTEGER NOT NULL,
+            specificity_score INTEGER NOT NULL,
+            contribution_value_score INTEGER NOT NULL,
+            commitment_score INTEGER NOT NULL,
+            category TEXT NOT NULL, -- 'HIGH_PRIORITY', 'MEDIUM_PRIORITY', 'LOW_PRIORITY', 'NEEDS_REVIEW'
+            summary TEXT NOT NULL,
+            strengths TEXT DEFAULT '[]', -- JSON array of strings
+            concerns TEXT DEFAULT '[]', -- JSON array of strings
+            model_version TEXT NOT NULL,
+            status TEXT DEFAULT 'analyzed', -- 'analyzed', 'pending', 'error'
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            FOREIGN KEY (collaboration_id) REFERENCES collaborations(id) ON DELETE CASCADE,
+            FOREIGN KEY (idea_id) REFERENCES ideas(id) ON DELETE CASCADE
+        );
+        """)
+
+        # 24. Idea Copilot Reports & Background State
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS copilot_reports (
+            id TEXT PRIMARY KEY,
+            idea_id TEXT UNIQUE NOT NULL,
+            status TEXT NOT NULL, -- 'PENDING', 'ANALYZING_IDEA', 'RESEARCHING', 'SYNTHESIZING', 'COMPLETED', 'FAILED', 'RETRYING'
+            current_step TEXT DEFAULT '',
+            progress INTEGER DEFAULT 0,
+            jurisdiction TEXT DEFAULT '',
+            report_data TEXT DEFAULT '{}',
+            error_message TEXT DEFAULT '',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            FOREIGN KEY (idea_id) REFERENCES ideas(id) ON DELETE CASCADE
+        );
+        """)
+
+        # Migration: Add jurisdiction to ideas if not present
+        cursor.execute("PRAGMA table_info(ideas);")
+        idea_cols = [c["name"] for c in cursor.fetchall()]
+        if "jurisdiction" not in idea_cols:
+            cursor.execute("ALTER TABLE ideas ADD COLUMN jurisdiction TEXT DEFAULT '';")
+
+        # 25. User Preferences & Settings System
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS user_settings (
+            user_id TEXT PRIMARY KEY,
+            theme TEXT DEFAULT 'dark', -- 'dark', 'light', 'system'
+            notify_collaborations INTEGER DEFAULT 1,
+            notify_polls INTEGER DEFAULT 1,
+            notify_reactions INTEGER DEFAULT 1,
+            notify_copilot INTEGER DEFAULT 1,
+            auto_run_copilot INTEGER DEFAULT 1,
+            default_jurisdiction TEXT DEFAULT '',
+            ai_tone TEXT DEFAULT 'balanced', -- 'creative', 'balanced', 'analytical'
+            updated_at TEXT NOT NULL,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        );
+        """)
+
+        # 26. User Help & Feedback Submissions
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS user_feedback (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            category TEXT DEFAULT 'general', -- 'general', 'bug', 'feature', 'help'
+            message TEXT NOT NULL,
+            email TEXT DEFAULT '',
+            rating INTEGER DEFAULT 5,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        );
+        """)
+
         # Create Indexes for lightning fast queries
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_ideas_user_id ON ideas(user_id);")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_ideas_status ON ideas(status);")
@@ -409,7 +505,15 @@ def init_db():
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_reactions_idea ON reactions(idea_id);")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_comments_idea ON comments(idea_id);")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_polls_idea ON polls(idea_id);")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_poll_options_poll ON poll_options(poll_id);")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_poll_votes ON poll_votes(poll_id);")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_collab_analyses_collab ON collaboration_analyses(collaboration_id);")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_collab_analyses_idea ON collaboration_analyses(idea_id);")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_copilot_reports_idea ON copilot_reports(idea_id);")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_copilot_reports_status ON copilot_reports(status);")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_messages_conv ON messages(conversation_id);")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_agent_runs_run_id ON agent_runs(run_id);")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_agent_runs_created ON agent_runs(created_at);")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_user_settings_user ON user_settings(user_id);")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_user_feedback_user ON user_feedback(user_id);")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);")

@@ -6,6 +6,7 @@ from app.database import get_db
 from app.dependencies import get_current_user, get_optional_user
 from app.models.schemas import CollaborationCreateRequest, CollaborationStatusUpdate
 from app.services.agent_orchestrator import orchestrator
+from app.services.proposal_analyzer import proposal_analyzer
 
 router = APIRouter(prefix="/api/ideas", tags=["Collaborations"])
 
@@ -67,23 +68,108 @@ async def request_collaboration(idea_id: str, data: CollaborationCreateRequest, 
 
 @router.get("/{idea_id}/collaborations")
 def get_idea_collaborations(idea_id: str):
-    """Lists collaborations for an idea."""
+    """Lists collaborations for an idea, joined with rich AI screening analyses."""
+    import json
     with get_db() as conn:
         cursor = conn.cursor()
         cursor.execute("""
-        SELECT c.*, u.username, u.display_name, u.avatar_url, u.skills, u.bio
+        SELECT c.*, u.username, u.display_name, u.avatar_url, u.skills, u.bio,
+               ca.id as analysis_id,
+               ca.overall_score,
+               ca.relevance_score,
+               ca.specificity_score,
+               ca.contribution_value_score,
+               ca.commitment_score,
+               ca.category as ai_category,
+               ca.summary as ai_summary,
+               ca.strengths as ai_strengths,
+               ca.concerns as ai_concerns,
+               ca.model_version as ai_model_version,
+               ca.status as ai_analysis_status,
+               ca.created_at as ai_analyzed_at
         FROM collaborations c
         JOIN users u ON c.requester_id = u.id
+        LEFT JOIN collaboration_analyses ca ON ca.collaboration_id = c.id
         WHERE c.idea_id = ?
         ORDER BY c.created_at DESC
         """, (idea_id,))
         rows = cursor.fetchall()
 
-    return {"collaborations": [dict(r) for r in rows]}
+    result = []
+    for r in rows:
+        d = dict(r)
+        analysis_obj = None
+        if d.get("overall_score") is not None:
+            analysis_obj = {
+                "id": d.get("analysis_id"),
+                "collaboration_id": d["id"],
+                "idea_id": d["idea_id"],
+                "overall_score": d["overall_score"],
+                "relevance_score": d.get("relevance_score", d["overall_score"]),
+                "specificity_score": d.get("specificity_score", d["overall_score"]),
+                "contribution_value_score": d.get("contribution_value_score", d["overall_score"]),
+                "commitment_score": d.get("commitment_score", d["overall_score"]),
+                "category": d.get("ai_category", "MEDIUM_PRIORITY"),
+                "summary": d.get("ai_summary", ""),
+                "strengths": json.loads(d.get("ai_strengths") or "[]") if isinstance(d.get("ai_strengths"), str) else (d.get("ai_strengths") or []),
+                "concerns": json.loads(d.get("ai_concerns") or "[]") if isinstance(d.get("ai_concerns"), str) else (d.get("ai_concerns") or []),
+                "model_version": d.get("ai_model_version", "gemini-2.5-flash"),
+                "status": d.get("ai_analysis_status", "analyzed"),
+                "created_at": d.get("ai_analyzed_at")
+            }
+            d["ai_seriousness_score"] = d["overall_score"]
+            d["ai_classification"] = d.get("ai_category", "medium").lower()
+            d["ai_rationale"] = d.get("ai_summary", "")
+
+        d["analysis"] = analysis_obj
+        result.append(d)
+
+    return {"collaborations": result}
+
+@router.post("/{idea_id}/collaborations/{collab_id}/analyze")
+async def analyze_single_proposal_endpoint(
+    idea_id: str,
+    collab_id: str,
+    force: bool = False,
+    user: Dict[str, Any] = Depends(get_current_user)
+):
+    """Analyzes or re-analyzes a single collaboration proposal with Gemini."""
+    import json
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, title, category, raw_content FROM ideas WHERE id = ?", (idea_id,))
+        idea = cursor.fetchone()
+        if not idea:
+            raise HTTPException(status_code=404, detail="Idea not found")
+
+        cursor.execute("""
+        SELECT c.*, u.username, u.skills
+        FROM collaborations c
+        JOIN users u ON c.requester_id = u.id
+        WHERE c.id = ? AND c.idea_id = ?
+        """, (collab_id, idea_id))
+        collab = cursor.fetchone()
+        if not collab:
+            raise HTTPException(status_code=404, detail="Collaboration proposal not found")
+
+    skills = json.loads(collab.get("skills") or "[]") if isinstance(collab.get("skills"), str) else (collab.get("skills") or [])
+    analysis = await proposal_analyzer.analyze_single_proposal(
+        collab_id=collab_id,
+        idea_id=idea_id,
+        idea_title=idea["title"],
+        idea_category=idea["category"],
+        idea_context=idea.get("raw_content", ""),
+        pitch_message=collab.get("pitch_message", ""),
+        role_type=collab.get("role_type", "technical"),
+        requester_skills=skills,
+        force=force
+    )
+
+    return {"status": "success", "analysis": analysis}
 
 @router.put("/collaborations/{collab_id}/status")
 def update_collaboration_status(collab_id: str, data: CollaborationStatusUpdate, user: Dict[str, Any] = Depends(get_current_user)):
-    """Accepts or declines a collaboration proposal."""
+    """Accepts or declines a collaboration proposal with human owner control."""
     with get_db() as conn:
         cursor = conn.cursor()
         cursor.execute("""

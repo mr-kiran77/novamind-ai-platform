@@ -1,5 +1,6 @@
 import React from 'react';
 import { Sparkles, Bot, Settings, Flame, Compass, Shield } from 'lucide-react';
+import { ProfilePopover } from './ProfilePopover';
 
 interface NavbarProps {
   currentTab: string;
@@ -8,6 +9,11 @@ interface NavbarProps {
   onOpenNova: () => void;
   currentUser: any;
   onSwitchRole: (role: string) => void;
+  onOpenProfile: () => void;
+  onOpenEditProfile: () => void;
+  onOpenSettings: (initialTab?: string) => void;
+  onLogout: () => void;
+  currentTheme?: string;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -17,6 +23,11 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenNova,
   currentUser,
   onSwitchRole,
+  onOpenProfile,
+  onOpenEditProfile,
+  onOpenSettings,
+  onLogout,
+  currentTheme = 'dark',
 }) => {
   return (
     <header className="sticky top-0 z-40 bg-[#0a0b10]/80 backdrop-blur-xl border-b border-white/10 px-4 lg:px-8 py-3">
@@ -113,19 +124,23 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           <button
             onClick={onOpenCapture}
-            className="gradient-btn text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 shadow-lg shadow-purple-500/25"
+            className="gradient-btn text-white px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-2 shadow-lg shadow-purple-500/25"
           >
             <Sparkles className="w-4 h-4" />
-            <span>Capture Idea</span>
+            <span className="hidden sm:inline">Capture Idea</span>
           </button>
 
-          {/* Quick Demo Role Selector */}
-          <div className="relative group">
-            <button className="flex items-center gap-1.5 text-xs bg-purple-950/60 border border-purple-500/30 text-purple-200 px-2.5 py-1.5 rounded-xl">
-              <span>{currentUser?.display_name || 'Dr. Maya Lin'}</span>
-              <span className="text-[10px]">▼</span>
+          {/* Quick Demo Role Selector (for evaluators & judges) */}
+          <div className="relative group hidden sm:block">
+            <button
+              className="flex items-center gap-1.5 text-xs bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 px-2.5 py-2 rounded-xl transition-colors"
+              title="Quick Persona Switcher for Hackathon Evaluation"
+            >
+              <span className="text-xs">🎭</span>
+              <span className="text-[11px] font-semibold">Demo</span>
+              <span className="text-[9px] text-gray-400">▼</span>
             </button>
-            <div className="absolute right-0 mt-1 w-44 bg-[#141624] border border-white/10 rounded-xl shadow-2xl p-1.5 hidden group-hover:block z-50 text-xs">
+            <div className="absolute right-0 mt-1 w-44 bg-[#141624] border border-white/15 rounded-xl shadow-2xl p-1.5 hidden group-hover:block z-50 text-xs">
               <div className="text-[10px] text-gray-500 px-2 py-1 font-bold uppercase">Quick Switch:</div>
               <button
                 onClick={() => onSwitchRole('user')}
@@ -150,6 +165,16 @@ export const Navbar: React.FC<NavbarProps> = ({
               </button>
             </div>
           </div>
+
+          {/* Top-Right Accessible Profile Avatar & Popover Menu */}
+          <ProfilePopover
+            currentUser={currentUser}
+            onOpenProfile={onOpenProfile}
+            onOpenEditProfile={onOpenEditProfile}
+            onOpenSettings={onOpenSettings}
+            onLogout={onLogout}
+            currentTheme={currentTheme}
+          />
         </div>
       </div>
     </header>

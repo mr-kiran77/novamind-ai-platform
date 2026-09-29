@@ -4,7 +4,7 @@ import aiofiles
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, Any, List, Optional
-from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Form, Query
+from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Form, Query, BackgroundTasks
 from app.config import settings
 from app.database import get_db
 from app.dependencies import get_current_user, get_optional_user
@@ -12,6 +12,8 @@ from app.models.schemas import IdeaCreateRequest, IdeaUpdateRequest, IdeaStageUp
 from app.services.agent_orchestrator import orchestrator
 from app.services.moderation_service import moderation_service
 from app.services.ai_providers import ai_registry
+from app.services.copilot_service import idea_copilot
+from app.routers.polls import fetch_poll_for_idea
 
 router = APIRouter(prefix="/api/ideas", tags=["Ideas"])
 
@@ -39,7 +41,11 @@ async def upload_media(file: UploadFile = File(...), user: Dict[str, Any] = Depe
     }
 
 @router.post("")
-async def create_idea(data: IdeaCreateRequest, user: Dict[str, Any] = Depends(get_current_user)):
+async def create_idea(
+    data: IdeaCreateRequest,
+    background_tasks: BackgroundTasks = BackgroundTasks(),
+    user: Dict[str, Any] = Depends(get_current_user)
+):
     """Rapid Idea Capture endpoint. Triggers multi-agent structuring and safety pipeline."""
     idea_id = str(uuid.uuid4())
     now = datetime.now(timezone.utc).isoformat()
@@ -81,6 +87,17 @@ async def create_idea(data: IdeaCreateRequest, user: Dict[str, Any] = Depends(ge
 
     status_val = "published" if policy_decision in ["published", "needs_edit"] else "quarantine"
 
+    # Read user preferences from user_settings
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT default_jurisdiction, auto_run_copilot FROM user_settings WHERE user_id = ?", (user["id"],))
+        usr_settings = cursor.fetchone()
+
+    user_default_jur = usr_settings.get("default_jurisdiction", "") if usr_settings else ""
+    auto_run_cop = bool(usr_settings.get("auto_run_copilot", 1)) if usr_settings else True
+
+    jurisdiction_val = (data.jurisdiction or user_default_jur or "").strip()
+
     with get_db() as conn:
         cursor = conn.cursor()
         cursor.execute("""
@@ -88,15 +105,15 @@ async def create_idea(data: IdeaCreateRequest, user: Dict[str, Any] = Depends(ge
             id, user_id, title, raw_content, raw_format, media_urls,
             structured_data, category, tags, status, stage, view_count,
             save_count, share_count, embedding, safety_score, moderation_notes,
-            created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, ?, ?, ?, ?, ?)
+            jurisdiction, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, ?, ?, ?, ?, ?, ?)
         """, (
             idea_id, user["id"], title, data.raw_content, data.raw_format,
             json.dumps(data.media_urls or []), json.dumps(structured_data),
             category, json.dumps(tags), status_val, stage,
             json.dumps(embedding), safety_score,
             json.dumps(moderation_output.get("violations", [])),
-            now, now
+            jurisdiction_val, now, now
         ))
 
         # Version 1 Record
@@ -121,6 +138,40 @@ async def create_idea(data: IdeaCreateRequest, user: Dict[str, Any] = Depends(ge
         WHERE id = ?
         """, (today, today, user["id"]))
 
+        # Optional Attached Poll creation
+        created_poll = None
+        if data.poll and isinstance(data.poll, dict):
+            p_question = (data.poll.get("question") or "").strip()
+            raw_opts = data.poll.get("options") or []
+            p_options = [str(o).strip() for o in raw_opts if str(o).strip()]
+            p_closes_at = data.poll.get("closes_at")
+            if p_question and 2 <= len(p_options) <= 6:
+                p_id = str(uuid.uuid4())
+                cursor.execute("""
+                INSERT INTO polls (id, idea_id, question, options, closes_at, created_by, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """, (p_id, idea_id, p_question, json.dumps(p_options), p_closes_at, user["id"], now))
+                for idx, opt_text in enumerate(p_options):
+                    cursor.execute("""
+                    INSERT INTO poll_options (id, poll_id, option_index, option_text)
+                    VALUES (?, ?, ?, ?)
+                    """, (str(uuid.uuid4()), p_id, idx, opt_text))
+                created_poll = {
+                    "id": p_id,
+                    "idea_id": idea_id,
+                    "question": p_question,
+                    "options": [{"index": i, "text": t, "vote_count": 0, "percentage": 0.0} for i, t in enumerate(p_options)],
+                    "total_votes": 0,
+                    "user_voted_option": None,
+                    "closes_at": p_closes_at,
+                    "is_closed": False,
+                    "created_at": now
+                }
+
+    # Trigger Idea Copilot background multimodal analysis & research if auto-run is enabled
+    if auto_run_cop:
+        idea_copilot.trigger_idea_copilot(idea_id, user["id"], background_tasks)
+
     return {
         "id": idea_id,
         "title": title,
@@ -129,7 +180,9 @@ async def create_idea(data: IdeaCreateRequest, user: Dict[str, Any] = Depends(ge
         "structured_data": structured_data,
         "category": category,
         "tags": tags,
-        "message": "Idea captured and structured successfully!"
+        "poll": created_poll,
+        "copilot_status": "PENDING",
+        "message": "Idea captured and structured successfully! Idea Copilot background research triggered."
     }
 
 @router.get("")
@@ -192,15 +245,21 @@ def get_ideas_feed(
                 cursor.execute("SELECT 1 FROM saved_ideas WHERE idea_id = ? AND user_id = ?", (d["id"], user_id))
                 is_saved = bool(cursor.fetchone())
 
+            cursor.execute("SELECT status, progress FROM copilot_reports WHERE idea_id = ?", (d["id"],))
+            cp_row = cursor.fetchone()
+            d["copilot_status"] = cp_row["status"] if cp_row else None
+            d["copilot_progress"] = cp_row["progress"] if cp_row else 0
+
             d["user_reactions"] = user_reactions
             d["is_saved"] = is_saved
+            d["poll"] = fetch_poll_for_idea(cursor, d["id"], user_id)
             items.append(d)
 
     return {"ideas": items, "count": len(items)}
 
 @router.get("/{idea_id}")
 def get_idea_detail(idea_id: str, current_user: Optional[Dict[str, Any]] = Depends(get_optional_user)):
-    """Full deep-dive detail of an idea with all 22 structured fields and reactions."""
+    """Full deep-dive detail of an idea with all 22 structured fields, poll, and reactions."""
     with get_db() as conn:
         cursor = conn.cursor()
         cursor.execute("""
@@ -246,6 +305,7 @@ def get_idea_detail(idea_id: str, current_user: Optional[Dict[str, Any]] = Depen
         # User specific state
         user_reactions = []
         is_saved = False
+        user_id_val = current_user.get("id") if current_user else None
         if current_user:
             cursor.execute("SELECT reaction_type FROM reactions WHERE idea_id = ? AND user_id = ?", (idea_id, current_user["id"]))
             user_reactions = [r["reaction_type"] for r in cursor.fetchall()]
@@ -254,6 +314,29 @@ def get_idea_detail(idea_id: str, current_user: Optional[Dict[str, Any]] = Depen
 
         idea["user_reactions"] = user_reactions
         idea["is_saved"] = is_saved
+        idea["poll"] = fetch_poll_for_idea(cursor, idea_id, user_id_val)
+
+        # Hydrate Idea Copilot report & status
+        cursor.execute("""
+        SELECT id, status, current_step, progress, jurisdiction, report_data, error_message, updated_at
+        FROM copilot_reports WHERE idea_id = ?
+        """, (idea_id,))
+        cp = cursor.fetchone()
+        if cp:
+            idea["copilot"] = {
+                "id": cp["id"],
+                "status": cp["status"],
+                "current_step": cp["current_step"],
+                "progress": cp["progress"],
+                "jurisdiction": cp["jurisdiction"],
+                "report": json.loads(cp.get("report_data") or "{}"),
+                "error_message": cp.get("error_message") or "",
+                "updated_at": cp["updated_at"]
+            }
+            idea["copilot_status"] = cp["status"]
+        else:
+            idea["copilot"] = None
+            idea["copilot_status"] = None
 
     return idea
 

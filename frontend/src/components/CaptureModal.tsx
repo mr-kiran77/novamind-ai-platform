@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Sparkles, X, Mic, FileText, Loader2, Wand2 } from 'lucide-react';
+import { Sparkles, X, Mic, FileText, Loader2, Wand2, BarChart3, Plus } from 'lucide-react';
 import { api } from '../services/api';
 
 interface CaptureModalProps {
@@ -33,6 +33,15 @@ export const CaptureModal: React.FC<CaptureModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Community Poll state (Feature 1)
+  const [attachPoll, setAttachPoll] = useState(false);
+  const [pollQuestion, setPollQuestion] = useState('');
+  const [pollOptions, setPollOptions] = useState<string[]>(['Option 1', 'Option 2']);
+  const [pollClosesAt, setPollClosesAt] = useState('');
+
+  // Idea Copilot Jurisdiction state
+  const [jurisdiction, setJurisdiction] = useState('');
+
   if (!isOpen) return null;
 
   // Simulate voice speech-to-text recording
@@ -60,18 +69,37 @@ export const CaptureModal: React.FC<CaptureModalProps> = ({
     setIsSubmitting(true);
     setError(null);
 
+    let pollPayload = undefined;
+    if (attachPoll && pollQuestion.trim()) {
+      const cleanOpts = pollOptions.map(o => o.trim()).filter(Boolean);
+      if (cleanOpts.length >= 2) {
+        pollPayload = {
+          question: pollQuestion.trim(),
+          options: cleanOpts.slice(0, 6),
+          closes_at: pollClosesAt ? new Date(pollClosesAt).toISOString() : undefined,
+        };
+      }
+    }
+
     try {
       const response = await api.captureIdea({
         raw_content: content.trim(),
         raw_format: rawFormat,
         title: title.trim() || undefined,
         category: category,
+        jurisdiction: jurisdiction.trim() || undefined,
+        poll: pollPayload,
       });
 
       onIdeaCreated(response.idea || response);
       onClose();
       setContent('');
       setTitle('');
+      setJurisdiction('');
+      setAttachPoll(false);
+      setPollQuestion('');
+      setPollOptions(['Option 1', 'Option 2']);
+      setPollClosesAt('');
     } catch (err: any) {
       setError(err.message || 'Failed to structure and publish idea. Please retry.');
     } finally {
@@ -172,6 +200,28 @@ export const CaptureModal: React.FC<CaptureModalProps> = ({
           </div>
 
           <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-xs font-bold text-gray-300">
+                Declared Geographic Jurisdiction (Optional)
+              </label>
+              <span className="text-[10px] text-cyan-400 font-semibold flex items-center gap-1">
+                <Sparkles className="w-3 h-3" />
+                Idea Copilot Grounding
+              </span>
+            </div>
+            <input
+              type="text"
+              value={jurisdiction}
+              onChange={(e) => setJurisdiction(e.target.value)}
+              placeholder="e.g. India, United States, Germany, European Union (Leave blank for Global)"
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-cyan-400"
+            />
+            <p className="text-[10px] text-gray-400 mt-1">
+              Idea Copilot will ground government grants, legal compliance, and tax incentives for this jurisdiction.
+            </p>
+          </div>
+
+          <div>
             <label className="block text-xs font-bold text-gray-300 mb-1">
               Describe your idea, napkin sketch, or problem
             </label>
@@ -187,6 +237,103 @@ Nova's AI engine will structure this into problem, solution, risks, tech stack, 
               className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 leading-relaxed font-sans"
               required
             />
+          </div>
+
+          {/* Community Poll Accordion (Feature 1) */}
+          <div className="rounded-xl border border-white/10 bg-white/[0.02] overflow-hidden transition-all">
+            <button
+              type="button"
+              onClick={() => setAttachPoll(!attachPoll)}
+              className="w-full px-3.5 py-2.5 flex items-center justify-between text-xs font-semibold text-gray-300 hover:text-white hover:bg-white/5 transition-colors"
+            >
+              <div className="flex items-center gap-2">
+                <BarChart3 className="w-4 h-4 text-cyan-400" />
+                <span>Attach Community Poll (2 to 6 Options)</span>
+              </div>
+              <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold border transition-all ${
+                attachPoll ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40' : 'bg-white/5 text-gray-400 border-white/10'
+              }`}>
+                {attachPoll ? '✓ Poll Attached' : '+ Add Poll'}
+              </span>
+            </button>
+
+            {attachPoll && (
+              <div className="p-3.5 border-t border-white/10 space-y-3 bg-black/40">
+                <div>
+                  <label className="block text-[11px] font-bold text-gray-300 mb-1">
+                    Poll Question
+                  </label>
+                  <input
+                    type="text"
+                    value={pollQuestion}
+                    onChange={(e) => setPollQuestion(e.target.value)}
+                    placeholder="e.g. Which hardware sensor or design approach should we prioritize?"
+                    className="w-full bg-white/5 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-cyan-400"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-[11px] font-bold text-gray-300">
+                      Options ({pollOptions.length}/6)
+                    </label>
+                    <span className="text-[10px] text-gray-500">Min 2, Max 6</span>
+                  </div>
+                  {pollOptions.map((opt, idx) => (
+                    <div key={idx} className="flex items-center gap-2">
+                      <span className="text-[10px] text-gray-500 w-4 text-center font-mono">{idx + 1}.</span>
+                      <input
+                        type="text"
+                        value={opt}
+                        onChange={(e) => {
+                          const next = [...pollOptions];
+                          next[idx] = e.target.value;
+                          setPollOptions(next);
+                        }}
+                        placeholder={`Option ${idx + 1}`}
+                        className="flex-1 bg-white/5 border border-white/10 rounded-lg px-2.5 py-1 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-cyan-400"
+                      />
+                      {pollOptions.length > 2 && (
+                        <button
+                          type="button"
+                          onClick={() => setPollOptions(pollOptions.filter((_, i) => i !== idx))}
+                          className="text-gray-500 hover:text-red-400 p-1"
+                          title="Remove option"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+
+                  {pollOptions.length < 6 && (
+                    <button
+                      type="button"
+                      onClick={() => setPollOptions([...pollOptions, `Option ${pollOptions.length + 1}`])}
+                      className="text-[11px] text-cyan-400 hover:text-cyan-300 flex items-center gap-1 font-semibold pt-1"
+                    >
+                      <Plus className="w-3 h-3" />
+                      <span>Add Option</span>
+                    </button>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-gray-300 mb-1">
+                    Optional Closing Date
+                  </label>
+                  <input
+                    type="datetime-local"
+                    value={pollClosesAt}
+                    onChange={(e) => setPollClosesAt(e.target.value)}
+                    className="bg-white/5 border border-white/10 rounded-lg px-2.5 py-1 text-xs text-gray-300 focus:outline-none focus:border-cyan-400"
+                  />
+                  <span className="text-[10px] text-gray-500 block mt-0.5">
+                    Leave blank to keep poll open indefinitely.
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* AI Structuring Status Banner */}

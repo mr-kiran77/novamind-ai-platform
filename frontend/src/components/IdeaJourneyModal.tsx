@@ -20,11 +20,17 @@ import {
   Wand2,
   Loader2,
   Flame,
+  RefreshCw,
+  ArrowUpDown,
+  Award,
+  ThumbsUp,
+  ThumbsDown,
 } from 'lucide-react';
 import { LinkedInIcon } from './SocialIcons';
 import type { Idea, CollaborationProposal, GovernmentScheme } from '../types';
 import { api } from '../services/api';
 import { PollWidget } from './PollWidget';
+import { IdeaCopilotTab } from './IdeaCopilotTab';
 
 interface IdeaJourneyModalProps {
   idea: Idea | null;
@@ -51,10 +57,13 @@ export const IdeaJourneyModal: React.FC<IdeaJourneyModalProps> = ({
   onOpenCollab,
   currentUser,
 }) => {
-  const [activeTab, setActiveTab] = useState<'blueprint' | 'poll' | 'collabs' | 'talent' | 'schemes' | 'comments'>('blueprint');
+  const [activeTab, setActiveTab] = useState<'copilot' | 'blueprint' | 'poll' | 'collabs' | 'talent' | 'schemes' | 'comments'>('copilot');
   const [proposals, setProposals] = useState<CollaborationProposal[]>([]);
-  const [collabFilter, setCollabFilter] = useState<'all' | 'high_priority' | 'time_pass'>('all');
+  const [collabFilter, setCollabFilter] = useState<'ALL' | 'HIGH_PRIORITY' | 'MEDIUM_PRIORITY' | 'LOW_PRIORITY' | 'NEEDS_REVIEW'>('ALL');
+  const [collabSort, setCollabSort] = useState<'highest_score' | 'newest' | 'oldest'>('highest_score');
   const [isScreening, setIsScreening] = useState(false);
+  const [analyzingCollabId, setAnalyzingCollabId] = useState<string | null>(null);
+  const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
 
   // Talent Matcher state
   const [talentData, setTalentData] = useState<any>(null);
@@ -96,11 +105,11 @@ export const IdeaJourneyModal: React.FC<IdeaJourneyModalProps> = ({
   const currentStageIndex = STAGES.findIndex(s => s.id === idea.stage);
   const activeStageIdx = currentStageIndex >= 0 ? currentStageIndex : 1;
 
-  // AI Collaborator Screening
-  const handleRunAiScreening = async () => {
+  // AI Collaborator Screening (Batch / Force Re-analyze)
+  const handleRunAiScreening = async (force: boolean = false) => {
     setIsScreening(true);
     try {
-      const res = await api.screenCollaborations(idea.id);
+      const res = await api.screenCollaborations(idea.id, force);
       if (res && res.proposals) {
         setProposals(res.proposals);
       }
@@ -108,6 +117,45 @@ export const IdeaJourneyModal: React.FC<IdeaJourneyModalProps> = ({
       console.error('Failed to screen proposals:', e);
     } finally {
       setIsScreening(false);
+    }
+  };
+
+  // Re-analyze single proposal
+  const handleAnalyzeSingleProposal = async (collabId: string) => {
+    setAnalyzingCollabId(collabId);
+    try {
+      const res = await api.analyzeProposal(idea.id, collabId, true);
+      if (res && res.analysis) {
+        setProposals(prev => prev.map(p => {
+          if (p.id === collabId) {
+            return {
+              ...p,
+              analysis: res.analysis,
+              ai_seriousness_score: res.analysis.overall_score,
+              ai_classification: res.analysis.category,
+              ai_rationale: res.analysis.summary,
+            };
+          }
+          return p;
+        }));
+      }
+    } catch (e) {
+      console.error('Failed to re-analyze proposal:', e);
+    } finally {
+      setAnalyzingCollabId(null);
+    }
+  };
+
+  // Owner Accept / Decline control
+  const handleUpdateStatus = async (collabId: string, status: 'accepted' | 'declined') => {
+    setUpdatingStatusId(collabId);
+    try {
+      await api.updateCollaborationStatus(collabId, status);
+      setProposals(prev => prev.map(p => (p.id === collabId ? { ...p, status } : p)));
+    } catch (e: any) {
+      alert(e.message || `Failed to update proposal to ${status}.`);
+    } finally {
+      setUpdatingStatusId(null);
     }
   };
 
@@ -156,12 +204,47 @@ export const IdeaJourneyModal: React.FC<IdeaJourneyModalProps> = ({
     setTimeout(() => setCopiedPitch(false), 2500);
   };
 
-  // Filtered proposals
-  const filteredProposals = proposals.filter(p => {
-    if (collabFilter === 'high_priority') return p.ai_classification === 'genuine_serious';
-    if (collabFilter === 'time_pass') return p.ai_classification === 'low_effort_time_pass';
-    return true;
-  });
+  // Summary Metrics calculations
+  const totalCount = proposals.length;
+  const analyzedCount = proposals.filter(p => p.analysis || p.ai_seriousness_score !== undefined).length;
+  const getProposalCategory = (p: CollaborationProposal) => {
+    if (p.analysis?.category) return p.analysis.category;
+    const s = p.ai_seriousness_score || 0;
+    if (p.ai_classification === 'genuine_serious' || s >= 80) return 'HIGH_PRIORITY';
+    if (p.ai_classification === 'moderate' || (s >= 60 && s < 80)) return 'MEDIUM_PRIORITY';
+    if (p.ai_classification === 'low_effort_time_pass' || s < 40) return 'LOW_PRIORITY';
+    return 'NEEDS_REVIEW';
+  };
+
+  const highPriorityCount = proposals.filter(p => getProposalCategory(p) === 'HIGH_PRIORITY').length;
+  const mediumPriorityCount = proposals.filter(p => getProposalCategory(p) === 'MEDIUM_PRIORITY').length;
+  const lowPriorityCount = proposals.filter(p => getProposalCategory(p) === 'LOW_PRIORITY').length;
+  const needsReviewCount = proposals.filter(p => getProposalCategory(p) === 'NEEDS_REVIEW').length;
+
+  // Filtered and Sorted proposals
+  const filteredProposals = proposals
+    .filter(p => {
+      const cat = getProposalCategory(p);
+      if (collabFilter === 'HIGH_PRIORITY') return cat === 'HIGH_PRIORITY';
+      if (collabFilter === 'MEDIUM_PRIORITY') return cat === 'MEDIUM_PRIORITY';
+      if (collabFilter === 'LOW_PRIORITY') return cat === 'LOW_PRIORITY';
+      if (collabFilter === 'NEEDS_REVIEW') return cat === 'NEEDS_REVIEW';
+      return true;
+    })
+    .sort((a, b) => {
+      if (collabSort === 'highest_score') {
+        const scoreA = a.analysis?.overall_score ?? a.ai_seriousness_score ?? 0;
+        const scoreB = b.analysis?.overall_score ?? b.ai_seriousness_score ?? 0;
+        return scoreB - scoreA;
+      }
+      if (collabSort === 'newest') {
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      }
+      if (collabSort === 'oldest') {
+        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      }
+      return 0;
+    });
 
   return (
     <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
@@ -250,6 +333,23 @@ export const IdeaJourneyModal: React.FC<IdeaJourneyModalProps> = ({
         {/* Navigation Tabs Bar */}
         <div className="flex items-center gap-1.5 px-4 pt-3 border-b border-white/5 text-xs overflow-x-auto scrollbar-none">
           <button
+            onClick={() => setActiveTab('copilot')}
+            className={`pb-2 px-2.5 font-bold transition-colors border-b-2 flex items-center gap-1.5 whitespace-nowrap ${
+              activeTab === 'copilot'
+                ? 'border-cyan-400 text-cyan-300'
+                : 'border-transparent text-gray-400 hover:text-white'
+            }`}
+          >
+            <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+            <span>Idea Copilot</span>
+            {idea.copilot_status === 'COMPLETED' ? (
+              <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-sm shadow-emerald-400" />
+            ) : idea.copilot_status && ['PENDING', 'ANALYZING_IDEA', 'RESEARCHING', 'SYNTHESIZING'].includes(idea.copilot_status) ? (
+              <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
+            ) : null}
+          </button>
+
+          <button
             onClick={() => setActiveTab('blueprint')}
             className={`pb-2 px-2.5 font-bold transition-colors border-b-2 flex items-center gap-1.5 whitespace-nowrap ${
               activeTab === 'blueprint'
@@ -324,6 +424,11 @@ export const IdeaJourneyModal: React.FC<IdeaJourneyModalProps> = ({
 
         {/* Tab Content Body */}
         <div className="flex-1 overflow-y-auto p-5 space-y-6 text-xs text-gray-300">
+          {/* TAB 0: IDEA COPILOT BACKGROUND INTELLIGENCE */}
+          {activeTab === 'copilot' && (
+            <IdeaCopilotTab idea={idea} />
+          )}
+
           {/* TAB 1: STRUCTURED BLUEPRINT */}
           {activeTab === 'blueprint' && (
             <div className="space-y-6">
@@ -426,132 +531,398 @@ export const IdeaJourneyModal: React.FC<IdeaJourneyModalProps> = ({
             </div>
           )}
 
-          {/* TAB 3: COLLABORATOR QUEUE WITH AI SCREENING */}
+          {/* TAB 3: COLLABORATOR QUEUE WITH AI SCREENING & OWNER SHORTLIST DASHBOARD */}
           {activeTab === 'collabs' && (
             <div className="space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-purple-950/30 p-3.5 rounded-xl border border-purple-500/20">
+              {/* Header Banner */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-purple-950/30 p-4 rounded-xl border border-purple-500/20">
                 <div>
                   <h4 className="font-bold text-white text-xs flex items-center gap-1.5">
                     <Users className="w-4 h-4 text-cyan-400" />
-                    <span>Collaborator Queue ({proposals.length})</span>
+                    <span>Owner Collaboration Dashboard &amp; Shortlist</span>
                   </h4>
-                  <p className="text-[10px] text-gray-400">
-                    AI automatically analyzes seriousness and screens out low-effort or 'time-pass' spam
+                  <p className="text-[11px] text-gray-400 mt-0.5">
+                    Gemini AI evaluates technical specifics, deliverables, and role fit while you retain 100% human decision control.
                   </p>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <button
-                    onClick={handleRunAiScreening}
+                    onClick={() => handleRunAiScreening(false)}
                     disabled={isScreening || proposals.length === 0}
                     className="gradient-btn text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow disabled:opacity-50"
                   >
                     {isScreening ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand2 className="w-3.5 h-3.5" />}
-                    <span>{isScreening ? 'Analyzing...' : 'Run AI Screening'}</span>
+                    <span>{isScreening ? 'Screening Proposals...' : 'Run AI Screening'}</span>
+                  </button>
+                  <button
+                    onClick={() => handleRunAiScreening(true)}
+                    disabled={isScreening || proposals.length === 0}
+                    title="Force Gemini to re-evaluate all proposals"
+                    className="bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 border border-white/10"
+                  >
+                    <RefreshCw className="w-3 h-3 text-cyan-400" />
+                    <span>Re-Screen All</span>
                   </button>
                   <button
                     onClick={() => onOpenCollab(idea)}
                     className="bg-white/10 hover:bg-white/20 text-white px-3 py-1.5 rounded-lg text-xs font-semibold"
                   >
-                    + Submit Offer
+                    + Submit Proposal
                   </button>
                 </div>
               </div>
 
-              {/* Filter Pills */}
-              <div className="flex items-center gap-2 text-xs">
-                <span className="text-gray-400 text-[11px] flex items-center gap-1">
-                  <Filter className="w-3 h-3" />
-                  Filter:
-                </span>
-                <button
-                  onClick={() => setCollabFilter('all')}
-                  className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all ${
-                    collabFilter === 'all'
-                      ? 'bg-purple-600/40 text-purple-200 border border-purple-500'
-                      : 'bg-white/5 text-gray-400 hover:text-white'
-                  }`}
-                >
-                  All ({proposals.length})
-                </button>
-                <button
-                  onClick={() => setCollabFilter('high_priority')}
-                  className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all flex items-center gap-1 ${
-                    collabFilter === 'high_priority'
-                      ? 'bg-green-500/20 text-green-300 border border-green-500'
-                      : 'bg-white/5 text-gray-400 hover:text-white'
-                  }`}
-                >
-                  <span>✨ High Priority Only</span>
-                </button>
-                <button
-                  onClick={() => setCollabFilter('time_pass')}
-                  className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all flex items-center gap-1 ${
-                    collabFilter === 'time_pass'
-                      ? 'bg-amber-500/20 text-amber-300 border border-amber-500'
-                      : 'bg-white/5 text-gray-400 hover:text-white'
-                  }`}
-                >
-                  <span>⚠️ Flagged Low Effort</span>
-                </button>
+              {/* Summary Metrics Bar */}
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
+                <div className="bg-white/[0.02] border border-white/10 p-2.5 rounded-xl text-center">
+                  <span className="text-[10px] text-gray-400 block uppercase font-bold tracking-wider">Total</span>
+                  <span className="text-base font-extrabold text-white">{totalCount}</span>
+                </div>
+                <div className="bg-emerald-950/20 border border-emerald-500/30 p-2.5 rounded-xl text-center">
+                  <span className="text-[10px] text-emerald-400 block uppercase font-bold tracking-wider">High Priority</span>
+                  <span className="text-base font-extrabold text-emerald-300">{highPriorityCount}</span>
+                </div>
+                <div className="bg-cyan-950/20 border border-cyan-500/30 p-2.5 rounded-xl text-center">
+                  <span className="text-[10px] text-cyan-400 block uppercase font-bold tracking-wider">Medium Fit</span>
+                  <span className="text-base font-extrabold text-cyan-300">{mediumPriorityCount}</span>
+                </div>
+                <div className="bg-amber-950/20 border border-amber-500/30 p-2.5 rounded-xl text-center">
+                  <span className="text-[10px] text-amber-400 block uppercase font-bold tracking-wider">Needs Review</span>
+                  <span className="text-base font-extrabold text-amber-300">{needsReviewCount}</span>
+                </div>
+                <div className="bg-rose-950/20 border border-rose-500/30 p-2.5 rounded-xl text-center">
+                  <span className="text-[10px] text-rose-400 block uppercase font-bold tracking-wider">Low Effort</span>
+                  <span className="text-base font-extrabold text-rose-300">{lowPriorityCount}</span>
+                </div>
               </div>
 
+              {/* Controls Bar: Filters & Sorting */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs border-y border-white/5 py-2.5">
+                {/* Priority Category Filters */}
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-gray-400 text-[11px] flex items-center gap-1 mr-1">
+                    <Filter className="w-3 h-3" /> Filter:
+                  </span>
+                  <button
+                    onClick={() => setCollabFilter('ALL')}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all ${
+                      collabFilter === 'ALL'
+                        ? 'bg-purple-600/40 text-purple-200 border border-purple-500'
+                        : 'bg-white/5 text-gray-400 hover:text-white border border-white/5'
+                    }`}
+                  >
+                    All ({totalCount})
+                  </button>
+                  <button
+                    onClick={() => setCollabFilter('HIGH_PRIORITY')}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all flex items-center gap-1 ${
+                      collabFilter === 'HIGH_PRIORITY'
+                        ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500'
+                        : 'bg-white/5 text-gray-400 hover:text-white border border-white/5'
+                    }`}
+                  >
+                    <span>✨ High Priority ({highPriorityCount})</span>
+                  </button>
+                  <button
+                    onClick={() => setCollabFilter('MEDIUM_PRIORITY')}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all flex items-center gap-1 ${
+                      collabFilter === 'MEDIUM_PRIORITY'
+                        ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500'
+                        : 'bg-white/5 text-gray-400 hover:text-white border border-white/5'
+                    }`}
+                  >
+                    <span>⚡ Medium ({mediumPriorityCount})</span>
+                  </button>
+                  <button
+                    onClick={() => setCollabFilter('NEEDS_REVIEW')}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all flex items-center gap-1 ${
+                      collabFilter === 'NEEDS_REVIEW'
+                        ? 'bg-amber-500/20 text-amber-300 border border-amber-500'
+                        : 'bg-white/5 text-gray-400 hover:text-white border border-white/5'
+                    }`}
+                  >
+                    <span>🔍 Needs Review ({needsReviewCount})</span>
+                  </button>
+                  <button
+                    onClick={() => setCollabFilter('LOW_PRIORITY')}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all flex items-center gap-1 ${
+                      collabFilter === 'LOW_PRIORITY'
+                        ? 'bg-rose-500/20 text-rose-300 border border-rose-500'
+                        : 'bg-white/5 text-gray-400 hover:text-white border border-white/5'
+                    }`}
+                  >
+                    <span>⚠️ Low Effort ({lowPriorityCount})</span>
+                  </button>
+                </div>
+
+                {/* Sorting Dropdown */}
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-gray-400 text-[11px] flex items-center gap-1">
+                    <ArrowUpDown className="w-3 h-3" /> Sort:
+                  </span>
+                  <select
+                    value={collabSort}
+                    onChange={(e) => setCollabSort(e.target.value as any)}
+                    className="bg-[#121320] border border-white/10 rounded-lg px-2.5 py-1 text-xs text-white focus:outline-none focus:border-purple-500"
+                  >
+                    <option value="highest_score">Highest AI Score</option>
+                    <option value="newest">Newest First</option>
+                    <option value="oldest">Oldest First</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Proposals List */}
               {filteredProposals.length === 0 ? (
-                <div className="text-center py-8 text-gray-500 space-y-1">
-                  <Users className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                  <p>No collaboration proposals in this filter view.</p>
+                <div className="text-center py-10 text-gray-500 space-y-1">
+                  <Users className="w-8 h-8 mx-auto mb-2 opacity-50 text-purple-400" />
+                  <p className="text-xs">No collaboration proposals match this category filter.</p>
                 </div>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-4">
                   {filteredProposals.map((p) => {
-                    const score = p.ai_seriousness_score || 75;
-                    const isHigh = p.ai_classification === 'genuine_serious' || score >= 80;
-                    const isTimePass = p.ai_classification === 'low_effort_time_pass' || score < 50;
+                    const analysis = p.analysis;
+                    const overallScore = analysis?.overall_score ?? p.ai_seriousness_score ?? 70;
+                    const category = analysis?.category ?? getProposalCategory(p);
+
+                    const isHigh = category === 'HIGH_PRIORITY';
+                    const isMed = category === 'MEDIUM_PRIORITY';
+                    const isLow = category === 'LOW_PRIORITY';
+                    const isReview = category === 'NEEDS_REVIEW';
+
+                    const isThisAnalyzing = analyzingCollabId === p.id;
+                    const isThisUpdating = updatingStatusId === p.id;
+
                     return (
                       <div
                         key={p.id}
-                        className={`p-3.5 rounded-xl border flex flex-col gap-2.5 transition-all ${
+                        className={`p-4 rounded-xl border transition-all space-y-3.5 ${
                           isHigh
-                            ? 'bg-green-950/20 border-green-500/30'
-                            : isTimePass
-                            ? 'bg-amber-950/15 border-amber-500/30 opacity-80'
-                            : 'bg-white/[0.03] border-white/10'
+                            ? 'bg-emerald-950/20 border-emerald-500/35 shadow-lg shadow-emerald-950/20'
+                            : isMed
+                            ? 'bg-cyan-950/15 border-cyan-500/25'
+                            : isReview
+                            ? 'bg-amber-950/15 border-amber-500/25'
+                            : 'bg-rose-950/15 border-rose-500/25 opacity-85'
                         }`}
                       >
+                        {/* Header: Candidate & Badges */}
                         <div className="flex items-center justify-between gap-2 flex-wrap">
-                          <div className="flex items-center gap-2">
-                            <span className="font-bold text-white text-xs">@{p.username || 'builder'}</span>
-                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-300 border border-cyan-500/30 font-semibold">
-                              {p.role_type}
-                            </span>
+                          <div className="flex items-center gap-2.5">
+                            <img
+                              src={p.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
+                              alt={p.username}
+                              className="w-8 h-8 rounded-lg object-cover border border-white/10"
+                            />
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="font-bold text-white text-xs">@{p.username || 'builder'}</span>
+                                <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-300 border border-cyan-500/30 font-semibold uppercase">
+                                  {p.role_type}
+                                </span>
+                                {/* Owner Decision Status */}
+                                <span
+                                  className={`text-[10px] px-2 py-0.5 rounded-full font-bold border ${
+                                    p.status === 'accepted'
+                                      ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                                      : p.status === 'declined'
+                                      ? 'bg-rose-500/20 text-rose-300 border-rose-500/40'
+                                      : 'bg-white/5 text-gray-400 border-white/10'
+                                  }`}
+                                >
+                                  {p.status === 'accepted' ? '✓ Accepted Collaborator' : p.status === 'declined' ? '✕ Declined' : 'Pending Owner Review'}
+                                </span>
+                              </div>
+                              <span className="text-[10px] text-gray-500">
+                                Applied {new Date(p.created_at).toLocaleDateString()}
+                              </span>
+                            </div>
                           </div>
 
-                          {/* AI Seriousness Score Badge */}
-                          <div className="flex items-center gap-1.5">
-                            <span
-                              className={`text-[10px] px-2 py-0.5 rounded-full font-bold flex items-center gap-1 ${
+                          {/* Overall Score Badge */}
+                          <div className="flex items-center gap-2">
+                            <div
+                              className={`px-3 py-1 rounded-xl font-extrabold text-xs flex items-center gap-1.5 border ${
                                 isHigh
-                                  ? 'bg-green-500/20 text-green-300 border border-green-500/40'
-                                  : isTimePass
-                                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
-                                  : 'bg-purple-500/20 text-purple-300 border border-purple-500/40'
+                                  ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                                  : isMed
+                                  ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40'
+                                  : isReview
+                                  ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                                  : 'bg-rose-500/20 text-rose-300 border-rose-500/40'
                               }`}
                             >
-                              <span>AI Fit: {score}%</span>
-                              <span>{isHigh ? '✨ Genuine' : isTimePass ? '⚠️ Time-Pass' : '⚡ Moderate'}</span>
-                            </span>
+                              <Award className="w-3.5 h-3.5" />
+                              <span>{overallScore}% Match</span>
+                              <span>•</span>
+                              <span className="text-[10px] tracking-wide">
+                                {isHigh ? 'HIGH PRIORITY' : isMed ? 'MEDIUM' : isReview ? 'NEEDS REVIEW' : 'LOW EFFORT'}
+                              </span>
+                            </div>
                           </div>
                         </div>
 
-                        <p className="text-xs text-gray-200 leading-relaxed bg-black/30 p-2.5 rounded-lg border border-white/5">
-                          "{p.pitch_message}"
-                        </p>
+                        {/* ORIGINAL PROPOSAL */}
+                        <div className="bg-black/40 p-3 rounded-xl border border-white/5 space-y-1">
+                          <span className="text-[10px] text-gray-400 uppercase font-bold tracking-wider block">
+                            Original Proposal:
+                          </span>
+                          <p className="text-xs text-gray-200 leading-relaxed font-sans whitespace-pre-line">
+                            "{p.pitch_message}"
+                          </p>
+                        </div>
 
-                        {p.ai_rationale && (
-                          <div className="text-[11px] text-gray-400 italic">
-                            {p.ai_rationale}
+                        {/* AI EVALUATION BREAKDOWN */}
+                        <div className="bg-purple-950/20 border border-purple-500/20 rounded-xl p-3 space-y-2.5">
+                          <div className="flex items-center justify-between text-[11px] text-gray-300 font-semibold border-b border-white/5 pb-1.5">
+                            <span className="flex items-center gap-1.5 text-cyan-300">
+                              <Sparkles className="w-3.5 h-3.5" />
+                              Gemini AI Technical Evaluation
+                            </span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] text-gray-500 font-mono">
+                                {analysis?.model_version || 'Gemini 2.5 Flash'}
+                              </span>
+                              <button
+                                onClick={() => handleAnalyzeSingleProposal(p.id)}
+                                disabled={isThisAnalyzing}
+                                className="text-[10px] text-cyan-400 hover:text-cyan-300 flex items-center gap-1 p-0.5 hover:underline"
+                                title="Re-evaluate with Gemini"
+                              >
+                                {isThisAnalyzing ? (
+                                  <Loader2 className="w-3 h-3 animate-spin" />
+                                ) : (
+                                  <RefreshCw className="w-3 h-3" />
+                                )}
+                                <span>{isThisAnalyzing ? 'Analyzing...' : 'Re-Analyze'}</span>
+                              </button>
+                            </div>
                           </div>
-                        )}
+
+                          {/* Sub-Score Bars (Relevance, Specificity, Contribution, Commitment) */}
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-0.5">
+                            <div className="bg-white/[0.02] p-2 rounded-lg border border-white/5">
+                              <div className="flex justify-between text-[10px] mb-1">
+                                <span className="text-gray-400">Relevance</span>
+                                <span className="font-bold text-white font-mono">{analysis?.relevance_score ?? overallScore}%</span>
+                              </div>
+                              <div className="w-full bg-white/10 rounded-full h-1.5">
+                                <div className="bg-cyan-400 h-1.5 rounded-full" style={{ width: `${analysis?.relevance_score ?? overallScore}%` }} />
+                              </div>
+                            </div>
+
+                            <div className="bg-white/[0.02] p-2 rounded-lg border border-white/5">
+                              <div className="flex justify-between text-[10px] mb-1">
+                                <span className="text-gray-400">Specificity</span>
+                                <span className="font-bold text-white font-mono">{analysis?.specificity_score ?? overallScore}%</span>
+                              </div>
+                              <div className="w-full bg-white/10 rounded-full h-1.5">
+                                <div className="bg-purple-400 h-1.5 rounded-full" style={{ width: `${analysis?.specificity_score ?? overallScore}%` }} />
+                              </div>
+                            </div>
+
+                            <div className="bg-white/[0.02] p-2 rounded-lg border border-white/5">
+                              <div className="flex justify-between text-[10px] mb-1">
+                                <span className="text-gray-400">Contribution</span>
+                                <span className="font-bold text-white font-mono">{analysis?.contribution_value_score ?? overallScore}%</span>
+                              </div>
+                              <div className="w-full bg-white/10 rounded-full h-1.5">
+                                <div className="bg-emerald-400 h-1.5 rounded-full" style={{ width: `${analysis?.contribution_value_score ?? overallScore}%` }} />
+                              </div>
+                            </div>
+
+                            <div className="bg-white/[0.02] p-2 rounded-lg border border-white/5">
+                              <div className="flex justify-between text-[10px] mb-1">
+                                <span className="text-gray-400">Commitment</span>
+                                <span className="font-bold text-white font-mono">{analysis?.commitment_score ?? overallScore}%</span>
+                              </div>
+                              <div className="w-full bg-white/10 rounded-full h-1.5">
+                                <div className="bg-amber-400 h-1.5 rounded-full" style={{ width: `${analysis?.commitment_score ?? overallScore}%` }} />
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* AI Summary Statement */}
+                          {(analysis?.summary || p.ai_rationale) && (
+                            <p className="text-[11px] text-gray-300 leading-relaxed italic bg-black/20 p-2 rounded-lg">
+                              💡 {analysis?.summary || p.ai_rationale}
+                            </p>
+                          )}
+
+                          {/* Strengths & Concerns Grid */}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] pt-1">
+                            {/* Strengths */}
+                            <div className="space-y-1">
+                              <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider block">
+                                Identified Strengths:
+                              </span>
+                              {(analysis?.strengths && analysis.strengths.length > 0
+                                ? analysis.strengths
+                                : ['Concrete technical alignment', 'Actionable contribution stated']
+                              ).map((st: string, idx: number) => (
+                                <div key={idx} className="flex items-start gap-1.5 text-gray-300">
+                                  <Check className="w-3 h-3 text-emerald-400 shrink-0 mt-0.5" />
+                                  <span>{st}</span>
+                                </div>
+                              ))}
+                            </div>
+
+                            {/* Concerns */}
+                            <div className="space-y-1">
+                              <span className="text-[10px] text-amber-400 font-bold uppercase tracking-wider block">
+                                Technical Gaps / Questions:
+                              </span>
+                              {(analysis?.concerns && analysis.concerns.length > 0
+                                ? analysis.concerns
+                                : ['Validate weekly timeline in kick-off call']
+                              ).map((co: string, idx: number) => (
+                                <div key={idx} className="flex items-start gap-1.5 text-gray-300">
+                                  <AlertTriangle className="w-3 h-3 text-amber-400 shrink-0 mt-0.5" />
+                                  <span>{co}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* HUMAN OWNER DECISION CONTROLS */}
+                        <div className="flex items-center justify-between pt-1 border-t border-white/5 flex-wrap gap-2">
+                          <span className="text-[11px] text-gray-400">
+                            Founder Decision (Owner Control):
+                          </span>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => handleUpdateStatus(p.id, 'declined')}
+                              disabled={isThisUpdating || p.status === 'declined'}
+                              className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                                p.status === 'declined'
+                                  ? 'bg-rose-950/40 text-rose-300 border border-rose-500/40 cursor-default'
+                                  : 'bg-white/5 hover:bg-rose-900/30 text-gray-300 hover:text-rose-200 border border-white/10'
+                              }`}
+                            >
+                              <ThumbsDown className="w-3 h-3 text-rose-400" />
+                              <span>{p.status === 'declined' ? 'Declined' : 'Decline'}</span>
+                            </button>
+
+                            <button
+                              onClick={() => handleUpdateStatus(p.id, 'accepted')}
+                              disabled={isThisUpdating || p.status === 'accepted'}
+                              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all shadow ${
+                                p.status === 'accepted'
+                                  ? 'bg-emerald-600/40 text-emerald-200 border border-emerald-500/50 cursor-default'
+                                  : 'gradient-btn text-white shadow-emerald-500/20'
+                              }`}
+                            >
+                              {isThisUpdating ? (
+                                <Loader2 className="w-3 h-3 animate-spin" />
+                              ) : (
+                                <ThumbsUp className="w-3 h-3 text-cyan-300" />
+                              )}
+                              <span>{p.status === 'accepted' ? '✓ Accepted' : 'Accept as Collaborator'}</span>
+                            </button>
+                          </div>
+                        </div>
                       </div>
                     );
                   })}

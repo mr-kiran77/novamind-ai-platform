@@ -5,9 +5,13 @@
 
 # Virtual Environment
 .venv/
+**/.venv/
 venv/
+**/venv/
 env/
+**/env/
 ENV/
+
 
 # Python Cache & Bytecode
 __pycache__/

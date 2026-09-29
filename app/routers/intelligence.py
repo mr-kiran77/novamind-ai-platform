@@ -6,6 +6,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from app.database import get_db
 from app.dependencies import get_current_user, get_optional_user
 from app.services.ai_providers import ai_registry
+from app.services.proposal_analyzer import proposal_analyzer
 
 router = APIRouter(prefix="/api/ideas", tags=["Intelligence & Talent & Schemes"])
 
@@ -180,75 +181,11 @@ async def search_government_schemes(idea_id: str, data: SchemeSearchRequest):
     }
 
 @router.post("/{idea_id}/collaborations/ai-screen")
-async def screen_collaborations_with_ai(idea_id: str, optional_user: Optional[Dict[str, Any]] = Depends(get_optional_user)):
-    """AI screening: Analyzes all pending collaboration proposals to separate serious builders from 'time-pass' spam."""
-    with get_db() as conn:
-        cursor = conn.cursor()
-        cursor.execute("SELECT id, title, structured_data FROM ideas WHERE id = ?", (idea_id,))
-        idea = cursor.fetchone()
-        if not idea:
-            raise HTTPException(status_code=404, detail="Idea not found")
-
-        cursor.execute("""
-        SELECT c.*, u.username, u.display_name, u.skills, u.reputation_score
-        FROM collaborations c
-        JOIN users u ON c.requester_id = u.id
-        WHERE c.idea_id = ?
-        """, (idea_id,))
-        proposals = [dict(r) for r in cursor.fetchall()]
-
-    if not proposals:
-        return {"proposals": [], "message": "No collaboration proposals to screen yet."}
-
-    # Evaluate each proposal using heuristic + Gemini
-    screened = []
-    with get_db() as conn:
-        cursor = conn.cursor()
-        for p in proposals:
-            msg = (p.get("pitch_message") or "").strip()
-            word_count = len(msg.split())
-            role = p.get("role_type", "technical")
-
-            # Scoring algorithm:
-            # 1. Length & Specificity: < 6 words is usually time-pass
-            # 2. Technical keywords (e.g. built, code, repo, lab, design, architecture)
-            tech_keywords = ["built", "code", "github", "prototype", "lab", "dataset", "pytorch", "fastapi", "hardware", "research", "materials", "patent", "model", "develop", "api"]
-            matches = [k for k in tech_keywords if k in msg.lower()]
-
-            if word_count < 6 or msg.lower() in ["hi", "cool idea", "i want to collaborate", "contact me", "nice", "let's talk"]:
-                score = 25
-                classification = "low_effort_time_pass"
-                rationale = "⚠️ Flagged as Low Effort: Message lacks concrete technical details, past project proof, or specific deliverables."
-            elif matches or word_count > 25:
-                score = min(98, 70 + len(matches) * 8 + min(15, word_count // 3))
-                classification = "genuine_serious"
-                rationale = f"✨ High Priority: Candidate offers specific tangible assets ({', '.join(matches[:3]) if matches else 'detailed implementation plan'})."
-            else:
-                score = 65
-                classification = "moderate"
-                rationale = "⚡ Moderate Interest: Genuine intent expressed, recommend requesting portfolio or sample GitHub repository."
-
-            # Update DB with AI score
-            cursor.execute("""
-            UPDATE collaborations
-            SET ai_seriousness_score = ?, ai_classification = ?, ai_rationale = ?
-            WHERE id = ?
-            """, (score, classification, rationale, p["id"]))
-
-            screened.append({
-                **p,
-                "ai_seriousness_score": score,
-                "ai_classification": classification,
-                "ai_rationale": rationale
-            })
-
-    # Sort descending by seriousness score
-    screened.sort(key=lambda x: x["ai_seriousness_score"], reverse=True)
-
-    return {
-        "idea_id": idea_id,
-        "total_proposals": len(screened),
-        "high_priority_count": sum(1 for p in screened if p["ai_classification"] == "genuine_serious"),
-        "time_pass_flagged_count": sum(1 for p in screened if p["ai_classification"] == "low_effort_time_pass"),
-        "proposals": screened
-    }
+async def screen_collaborations_with_ai(
+    idea_id: str,
+    force: bool = False,
+    optional_user: Optional[Dict[str, Any]] = Depends(get_optional_user)
+):
+    """AI screening: Analyzes all pending collaboration proposals with Gemini and structured criteria."""
+    result = await proposal_analyzer.screen_all_proposals(idea_id=idea_id, force=force)
+    return result

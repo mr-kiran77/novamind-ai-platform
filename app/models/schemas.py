@@ -55,6 +55,32 @@ class UserProfileUpdate(BaseModel):
     links: Optional[List[str]] = None
     is_private: Optional[bool] = None
 
+# User Settings & Preferences
+class UserSettingsUpdate(BaseModel):
+    theme: Optional[str] = None  # 'dark', 'light', 'system'
+    notify_collaborations: Optional[bool] = None
+    notify_polls: Optional[bool] = None
+    notify_reactions: Optional[bool] = None
+    notify_copilot: Optional[bool] = None
+    auto_run_copilot: Optional[bool] = None
+    default_jurisdiction: Optional[str] = None
+    ai_tone: Optional[str] = None  # 'creative', 'balanced', 'analytical'
+
+class PasswordChangeRequest(BaseModel):
+    current_password: str
+    new_password: str
+    confirm_password: str
+
+class AccountDeleteRequest(BaseModel):
+    password: str
+    confirm_phrase: str
+
+class FeedbackSubmitRequest(BaseModel):
+    category: str = "general"  # 'general', 'bug', 'feature', 'help'
+    message: str
+    rating: Optional[int] = 5
+    email: Optional[str] = ""
+
 # Structured Idea Model (22 Comprehensive Fields from Specification)
 class StructuredIdeaData(BaseModel):
     title: str = ""
@@ -90,6 +116,8 @@ class IdeaCreateRequest(BaseModel):
     tags: Optional[List[str]] = []
     media_urls: Optional[List[str]] = []
     structure_with_ai: bool = True
+    poll: Optional[Dict[str, Any]] = None
+    jurisdiction: Optional[str] = None
 
 class IdeaUpdateRequest(BaseModel):
     title: Optional[str] = None
@@ -162,3 +190,44 @@ class SemanticSearchRequest(BaseModel):
     category: Optional[str] = None
     stage: Optional[str] = None
     limit: int = 20
+
+# Idea Copilot Models
+class CopilotSource(BaseModel):
+    title: str
+    url: str
+    publisher: str
+    relevance: str
+    last_verified: str
+
+class CopilotIdeaUnderstanding(BaseModel):
+    summary: str
+    sector: str
+    problem: str
+    solution: str
+    target_users: List[str]
+    jurisdiction: str
+
+class CopilotResearchStatus(BaseModel):
+    status: str = "completed"
+    last_verified: str
+    sources_found: int = 0
+
+class CopilotReportData(BaseModel):
+    idea_understanding: CopilotIdeaUnderstanding
+    research_status: CopilotResearchStatus
+    top_actions: List[Dict[str, Any]] = []
+    government_support: List[Dict[str, Any]] = []
+    legal_regulatory: List[Dict[str, Any]] = []
+    safety_and_ethics: List[Dict[str, Any]] = []
+    tax_compliance: List[Dict[str, Any]] = []
+    intellectual_property: List[Dict[str, Any]] = []
+    standards_certifications: List[Dict[str, Any]] = []
+    idea_improvements: List[Dict[str, Any]] = []
+    execution_plan: List[str] = []
+    risks_and_unknowns: List[Dict[str, Any]] = []
+    sources: List[CopilotSource] = []
+    disclaimers: List[str] = []
+
+class CopilotRunRequest(BaseModel):
+    force: bool = False
+    jurisdiction: Optional[str] = None
