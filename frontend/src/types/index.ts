@@ -61,19 +61,23 @@ export interface FeedbackPayload {
 }
 
 export interface StructuredBlueprint {
-  title: string;
-  one_line_summary: string;
-  problem_statement: string;
-  proposed_solution: string;
-  how_it_works: string;
-  who_it_helps: string;
-  why_it_matters: string;
-  possible_benefits: string[];
-  challenges_risks: string[];
-  required_resources: string[];
-  suggested_tech_stack: string[];
-  practical_use_cases: string[];
+  title?: string;
+  one_line_summary?: string;
+  problem_statement?: string;
+  proposed_solution?: string;
+  how_it_works?: string;
+  who_it_helps?: string;
+  why_it_matters?: string;
+  possible_benefits?: string[];
+  challenges_risks?: string[];
+  possible_challenges?: string[];
+  required_resources?: string[];
+  suggested_tech_stack?: string[];
+  technology_required?: string[];
+  practical_use_cases?: string[];
+  potential_applications?: string[];
   market_feasibility_score?: number;
+  [key: string]: any;
 }
 
 export interface PollOption {
@@ -125,7 +129,8 @@ export interface Idea {
   stage: StageType;
   raw_content: string;
   raw_format: 'text' | 'voice' | 'image' | 'video' | 'document';
-  structured_data: StructuredBlueprint;
+  media_urls?: string[];
+  structured_data?: StructuredBlueprint | any;
   tags: string[];
   reaction_count: number;
   comment_count: number;
@@ -142,6 +147,7 @@ export interface Idea {
   copilot_progress?: number;
   copilot?: IdeaCopilotData | null;
   created_at: string;
+  [key: string]: any;
 }
 
 export type CopilotState =

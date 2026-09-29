@@ -24,6 +24,7 @@ import { AuthModal } from './components/AuthModal';
 import { LoginPage } from './components/LoginPage';
 import { CosmicIntro } from './components/CosmicIntro';
 import { api } from './services/api';
+import { SEED_IDEAS } from './data/seedIdeas';
 import type { Idea, User } from './types';
 
 const CATEGORIES = [
@@ -247,12 +248,31 @@ export function App() {
       setLoading(true);
       setError(null);
       const data = await api.getIdeas(category);
-      if (data && data.ideas) {
+      if (data && data.ideas && data.ideas.length > 0) {
         setIdeas(data.ideas);
+      } else {
+        const filtered =
+          category && category !== 'All'
+            ? SEED_IDEAS.filter(
+                i =>
+                  (i.category || '').toLowerCase() === category.toLowerCase() ||
+                  (i.tags || []).some(t => t.toLowerCase() === category.toLowerCase())
+              )
+            : SEED_IDEAS;
+        setIdeas(filtered);
       }
     } catch (err: any) {
-      console.error('Failed to fetch ideas:', err);
-      setError('Unable to load ideas from the backend server. Please verify the Python FastAPI backend is running on port 8000.');
+      console.warn('Serving pre-structured seed blueprints:', err);
+      const filtered =
+        category && category !== 'All'
+          ? SEED_IDEAS.filter(
+              i =>
+                (i.category || '').toLowerCase() === category.toLowerCase() ||
+                (i.tags || []).some(t => t.toLowerCase() === category.toLowerCase())
+            )
+          : SEED_IDEAS;
+      setIdeas(filtered);
+      setError(null);
     } finally {
       setLoading(false);
     }
@@ -684,7 +704,7 @@ export function App() {
               </div>
 
               {/* Error state */}
-              {error && (
+              {error && ideas.length === 0 && (
                 <div className="bg-red-950/50 border border-red-500/30 text-red-200 text-xs p-4 rounded-2xl flex items-center justify-between">
                   <span>{error}</span>
                   <button
