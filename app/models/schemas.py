@@ -90,6 +90,7 @@ class SignInEmailRequest(BaseModel):
 
 class PhoneOTPRequest(BaseModel):
     mobile: str
+    channel: Optional[str] = "sms"
 
     @field_validator("mobile")
     def check_mobile(cls, v):
@@ -108,6 +109,8 @@ class PhoneOTPSignUpVerify(BaseModel):
     otp_code: str
     full_name: str
     email: Optional[str] = None
+    username: Optional[str] = None
+    password: Optional[str] = None
 
     @field_validator("mobile")
     def check_mobile(cls, v):
@@ -119,7 +122,7 @@ class PhoneOTPSignUpVerify(BaseModel):
 
     @field_validator("email")
     def check_email(cls, v):
-        if v:
+        if v and v.strip():
             return validate_email_address(v)
         return None
 

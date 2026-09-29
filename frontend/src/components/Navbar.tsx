@@ -14,6 +14,7 @@ interface NavbarProps {
   onOpenSettings: (initialTab?: string) => void;
   onLogout: () => void;
   onOpenAuth?: (mode?: 'signin' | 'signup') => void;
+  onReplayIntro?: () => void;
   currentTheme?: string;
 }
 
@@ -29,6 +30,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenSettings,
   onLogout,
   onOpenAuth,
+  onReplayIntro,
   currentTheme = 'dark',
 }) => {
   return (
@@ -173,8 +175,29 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <span>🔑 Open Login Page</span>
                 <span>↗</span>
               </button>
+              {onReplayIntro && (
+                <button
+                  onClick={onReplayIntro}
+                  className="w-full text-left px-2 py-1.5 rounded-lg hover:bg-indigo-500/20 flex items-center justify-between text-indigo-300 font-semibold"
+                >
+                  <span>🌌 Cinematic Intro</span>
+                  <span>✨</span>
+                </button>
+              )}
             </div>
           </div>
+
+          {/* Replay Intro Animation Button */}
+          {onReplayIntro && (
+            <button
+              onClick={onReplayIntro}
+              className="hidden lg:flex items-center gap-1.5 text-xs bg-indigo-500/15 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-500/30 px-3 py-2 rounded-xl transition-all shadow-sm"
+              title="Replay Futuristic Cosmic Intro Animation"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
+              <span className="font-semibold">Intro</span>
+            </button>
+          )}
 
           {/* Direct Login Page Button */}
           <button

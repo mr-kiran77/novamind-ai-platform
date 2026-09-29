@@ -22,6 +22,7 @@ import { EditProfileModal } from './components/EditProfileModal';
 import { SettingsModal } from './components/SettingsModal';
 import { AuthModal } from './components/AuthModal';
 import { LoginPage } from './components/LoginPage';
+import { CosmicIntro } from './components/CosmicIntro';
 import { api } from './services/api';
 import type { Idea, User } from './types';
 
@@ -66,6 +67,19 @@ export function App() {
   const [authInitialMode, setAuthInitialMode] = useState<'signin' | 'signup'>('signin');
   const [currentRoute, setCurrentRoute] = useState<'app' | 'login' | 'signup'>('app');
 
+  // Cinematic Website Intro Animation State
+  const [showCosmicIntro, setShowCosmicIntro] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('intro') === 'true' || params.get('intro') === '1') return true;
+    const hasSeenIntro = sessionStorage.getItem('novamind_intro_seen');
+    return !hasSeenIntro;
+  });
+
+  const handleIntroComplete = () => {
+    sessionStorage.setItem('novamind_intro_seen', 'true');
+    setShowCosmicIntro(false);
+  };
+
   const navigateTo = (route: 'app' | 'login' | 'signup') => {
     setCurrentRoute(route);
     if (route === 'login') {
@@ -81,13 +95,22 @@ export function App() {
   // Toast notification
   const [toast, setToast] = useState<string | null>(null);
 
-  // Active User State
-  const [currentUser, setCurrentUser] = useState<User>({
-    id: 'user_1',
-    username: 'drmayalin',
-    display_name: 'Dr. Maya Lin',
-    avatar_url: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150',
-    role: 'user',
+  // Active User State - Default to null so user ALWAYS sees the Login Page first on opening
+  const [currentUser, setCurrentUser] = useState<User | null>(() => {
+    try {
+      const isSessionActive = sessionStorage.getItem('novamind_session_active') === 'true';
+      if (!isSessionActive) {
+        return null;
+      }
+      const savedUser = localStorage.getItem('novamind_user') || sessionStorage.getItem('novamind_user');
+      const token = localStorage.getItem('novamind_token') || sessionStorage.getItem('novamind_token');
+      if (savedUser && token) {
+        return JSON.parse(savedUser);
+      }
+    } catch (e) {
+      console.warn('Could not parse stored session:', e);
+    }
+    return null;
   });
 
   const showToast = (msg: string) => {
@@ -122,35 +145,33 @@ export function App() {
     const savedTheme = (localStorage.getItem('novamind_theme') as any) || 'dark';
     applyTheme(savedTheme);
 
-    // Hydrate authenticated user session from localStorage
-    const savedUserStr = localStorage.getItem('novamind_user');
-    const savedToken = localStorage.getItem('novamind_token');
-    if (savedUserStr && savedToken) {
-      try {
-        const parsed = JSON.parse(savedUserStr);
-        if (parsed && parsed.id) {
-          setCurrentUser(parsed);
-          api.setToken(savedToken);
+    // Hydrate authenticated user session ONLY IF session is actively authenticated
+    const isSessionActive = sessionStorage.getItem('novamind_session_active') === 'true';
+    if (isSessionActive) {
+      const savedUserStr = localStorage.getItem('novamind_user');
+      const savedToken = localStorage.getItem('novamind_token');
+      if (savedUserStr && savedToken) {
+        try {
+          const parsed = JSON.parse(savedUserStr);
+          if (parsed && parsed.id) {
+            setCurrentUser(parsed);
+            api.setToken(savedToken);
+          }
+        } catch (e) {
+          // ignore invalid saved user
         }
-      } catch (e) {
-        // ignore invalid saved user
       }
+    } else {
+      setCurrentUser(null);
     }
 
-    // Route synchronization with URL path and hash
+    // Route synchronization: Default to Login page on initial open, and Landing page after authentication
     const syncRouteFromUrl = () => {
       const path = window.location.pathname.toLowerCase();
       const hash = window.location.hash.toLowerCase();
+      const hasActiveSession = sessionStorage.getItem('novamind_session_active') === 'true';
+
       if (
-        path === '/login' ||
-        path === '/signin' ||
-        hash === '#/login' ||
-        hash === '#/signin' ||
-        hash === '#login' ||
-        hash === '#signin'
-      ) {
-        setCurrentRoute('login');
-      } else if (
         path === '/signup' ||
         path === '/register' ||
         hash === '#/signup' ||
@@ -159,8 +180,25 @@ export function App() {
         hash === '#register'
       ) {
         setCurrentRoute('signup');
+      } else if (
+        path === '/app' ||
+        path === '/landing' ||
+        path === '/dashboard' ||
+        hash === '#/app' ||
+        hash === '#landing'
+      ) {
+        if (hasActiveSession) {
+          setCurrentRoute('app');
+        } else {
+          setCurrentRoute('login');
+        }
       } else {
-        setCurrentRoute('app');
+        // Root path '/' or '/login': Show Login page first if not actively authenticated, or Landing page if authenticated
+        if (hasActiveSession) {
+          setCurrentRoute('app');
+        } else {
+          setCurrentRoute('login');
+        }
       }
     };
 
@@ -200,35 +238,45 @@ export function App() {
     try {
       const res = await api.demoSwitch(role);
       if (res && res.user) {
+        sessionStorage.setItem('novamind_session_active', 'true');
         setCurrentUser(res.user);
+        if (res.access_token) {
+          api.setToken(res.access_token);
+          localStorage.setItem('novamind_token', res.access_token);
+        }
+        localStorage.setItem('novamind_user', JSON.stringify(res.user));
         showToast(`Switched persona to: ${res.user.display_name} (${res.user.role})`);
       }
     } catch (e) {
+      let fallbackUser: User;
       if (role === 'moderator') {
-        setCurrentUser({
+        fallbackUser = {
           id: 'user_mod',
           username: 'alexvance',
           display_name: 'Alex Vance',
           avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
           role: 'moderator',
-        });
+        };
       } else if (role === 'admin') {
-        setCurrentUser({
+        fallbackUser = {
           id: 'user_admin',
           username: 'sysadmin',
           display_name: 'Nova Admin',
           avatar_url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
           role: 'admin',
-        });
+        };
       } else {
-        setCurrentUser({
+        fallbackUser = {
           id: 'user_1',
           username: 'drmayalin',
           display_name: 'Dr. Maya Lin',
           avatar_url: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150',
           role: 'user',
-        });
+        };
       }
+      sessionStorage.setItem('novamind_session_active', 'true');
+      setCurrentUser(fallbackUser);
+      localStorage.setItem('novamind_user', JSON.stringify(fallbackUser));
       showToast(`Switched active view role to: ${role}`);
     }
   };
@@ -321,25 +369,37 @@ export function App() {
     return matchTitle || matchSummary || matchContent || matchTag;
   });
 
-  // Dedicated Full-Screen Login & Sign Up Page Route View
-  if (currentRoute === 'login' || currentRoute === 'signup') {
+  // Dedicated Full-Screen Login & Sign Up Page Route View (Mandatory Auth Gate)
+  if (!currentUser || currentRoute === 'login' || currentRoute === 'signup') {
     return (
       <div className="min-h-screen bg-[#07080d]">
+        {showCosmicIntro && (
+          <CosmicIntro onComplete={handleIntroComplete} />
+        )}
         <LoginPage
           initialMode={currentRoute === 'signup' ? 'signup' : 'signin'}
           onSuccess={(user, token) => {
+            sessionStorage.setItem('novamind_session_active', 'true');
             setCurrentUser(user);
             api.setToken(token);
             localStorage.setItem('novamind_user', JSON.stringify(user));
             localStorage.setItem('novamind_token', token);
             navigateTo('app');
-            showToast(`✨ Welcome back, ${user.display_name || user.username}!`);
+            showToast(`✨ Welcome to NovaMind, ${user.display_name || user.username}!`);
           }}
-          onNavigateHome={() => navigateTo('app')}
-          onSwitchPersona={(role) => {
-            handleRoleSwitch(role);
+          onNavigateHome={() => {
+            if (currentUser) {
+              navigateTo('app');
+            } else {
+              showToast('Please sign in or create an account to access the platform.');
+            }
+          }}
+          onSwitchPersona={async (role) => {
+            await handleRoleSwitch(role);
             navigateTo('app');
           }}
+          onReplayIntro={() => setShowCosmicIntro(true)}
+          isAuthenticated={!!currentUser}
         />
         {toast && (
           <div className="fixed top-20 right-6 z-50 bg-purple-600/90 border border-purple-400 text-white text-xs px-4 py-2.5 rounded-xl shadow-2xl backdrop-blur-md animate-fade-in flex items-center gap-2">
@@ -353,6 +413,11 @@ export function App() {
 
   return (
     <div className="min-h-screen bg-[#07080d] text-white flex flex-col font-sans selection:bg-purple-500 selection:text-white relative">
+      {/* Cinematic Cosmic Website Intro Animation Overlay */}
+      {showCosmicIntro && (
+        <CosmicIntro onComplete={handleIntroComplete} />
+      )}
+
       {/* Toast Notification */}
       {toast && (
         <div className="fixed top-20 right-6 z-50 bg-purple-600/90 border border-purple-400 text-white text-xs px-4 py-2.5 rounded-xl shadow-2xl backdrop-blur-md animate-fade-in flex items-center gap-2">
@@ -379,16 +444,20 @@ export function App() {
           setIsSettingsOpen(true);
         }}
         onLogout={() => {
+          sessionStorage.removeItem('novamind_session_active');
           localStorage.removeItem('novamind_token');
           localStorage.removeItem('novamind_user');
+          sessionStorage.removeItem('novamind_token');
+          sessionStorage.removeItem('novamind_user');
           api.setToken('');
-          setCurrentUser(null as any);
-          showToast('Logged out of session. Redirecting to login page...');
+          setCurrentUser(null);
+          showToast('👋 Logged out safely. Redirecting to login page...');
           navigateTo('login');
         }}
         onOpenAuth={(initialMode?: 'signin' | 'signup') => {
           navigateTo(initialMode === 'signup' ? 'signup' : 'login');
         }}
+        onReplayIntro={() => setShowCosmicIntro(true)}
         currentTheme={currentTheme}
       />
 

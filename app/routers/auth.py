@@ -41,7 +41,7 @@ def signin_email(data: SignInEmailRequest):
 @router.post("/otp/send")
 def send_otp(data: PhoneOTPRequest):
     try:
-        return auth_service.send_phone_otp(data.mobile)
+        return auth_service.send_phone_otp(data.mobile, channel=data.channel or "sms")
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -61,7 +61,9 @@ def verify_otp_signup(data: PhoneOTPSignUpVerify):
             mobile=data.mobile,
             otp_code=data.otp_code,
             full_name=data.full_name,
-            email=data.email
+            email=data.email,
+            username=data.username,
+            password=data.password
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -117,10 +119,14 @@ def register(data: UserRegister):
 def login(data: UserLogin):
     identifier = (data.login_identifier or data.mobile or "").strip()
     if not identifier:
-        raise HTTPException(status_code=400, detail="Please enter your Unique ID or Mobile number")
+        raise HTTPException(status_code=400, detail="Please enter your Unique ID, Email, or Mobile number")
 
-    # Look up by unique username (ID) or mobile number
-    user = auth_service.get_user_by_username(identifier) or auth_service.get_user_by_mobile(identifier)
+    # Look up by unique username (ID), email, or mobile number
+    user = (
+        auth_service.get_user_by_username(identifier)
+        or auth_service.get_user_by_email(identifier)
+        or auth_service.get_user_by_mobile(identifier)
+    )
     if not user:
         raise HTTPException(status_code=400, detail=f"No account found for '{identifier}'. Please check your ID or sign up.")
     if user.get("is_banned"):

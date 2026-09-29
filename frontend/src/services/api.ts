@@ -269,10 +269,17 @@ export const api = {
     });
   },
 
-  sendPhoneOtp(mobile: string) {
-    return this.request<{ status: string; mobile: string; message: string; dev_code_hint?: string }>('/api/auth/otp/send', {
+  sendPhoneOtp(mobile: string, channel: 'sms' | 'whatsapp' | 'call' = 'sms') {
+    return this.request<{
+      status: string;
+      mobile: string;
+      message: string;
+      channel?: string;
+      dev_code_hint?: string;
+      expires_in_minutes?: number;
+    }>('/api/auth/otp/send', {
       method: 'POST',
-      body: JSON.stringify({ mobile }),
+      body: JSON.stringify({ mobile, channel }),
     });
   },
 
@@ -283,11 +290,44 @@ export const api = {
     });
   },
 
-  verifyPhoneSignUp(payload: { mobile: string; otp_code: string; full_name: string; email?: string }) {
+  verifyOtpOnly(mobile: string, code: string) {
+    return this.request<{ status: string; message: string }>('/api/auth/otp/verify', {
+      method: 'POST',
+      body: JSON.stringify({ mobile, code }),
+    });
+  },
+
+  verifyPhoneSignUp(payload: {
+    mobile: string;
+    otp_code: string;
+    full_name: string;
+    email?: string;
+    username?: string;
+    password?: string;
+  }) {
     return this.request<{ access_token: string; token_type: string; user: any }>('/api/auth/otp/verify-signup', {
       method: 'POST',
       body: JSON.stringify(payload),
     });
+  },
+
+  loginWithCredentials(identifier: string, password: string) {
+    return this.request<{ access_token: string; token_type: string; user: any }>('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ login_identifier: identifier, password }),
+    });
+  },
+
+  checkUsername(username: string) {
+    return this.request<{ available: boolean; username: string; suggestions: string[] }>(
+      `/api/auth/check-username?username=${encodeURIComponent(username)}`
+    );
+  },
+
+  suggestPersona() {
+    return this.request<{ display_name: string; username: string; avatar_url: string; bio: string }>(
+      '/api/auth/suggest-persona'
+    );
   },
 
   forgotPassword(email: string) {

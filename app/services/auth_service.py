@@ -85,15 +85,27 @@ class AuthService:
         }
 
     @staticmethod
-    def verify_otp(mobile: str, code: str) -> bool:
+    def verify_otp(mobile: str, code: str, allow_recent_verified: bool = True) -> bool:
         clean_mobile = mobile.strip()
+        try:
+            norm_mobile = normalize_indian_mobile(clean_mobile)
+        except Exception:
+            norm_mobile = clean_mobile
+
         with get_db() as conn:
             cursor = conn.cursor()
-            cursor.execute("""
-            SELECT id, expires_at, verified FROM otps
-            WHERE mobile = ? AND code = ? AND verified = 0
-            ORDER BY created_at DESC LIMIT 1
-            """, (clean_mobile, code.strip()))
+            if allow_recent_verified:
+                cursor.execute("""
+                SELECT id, expires_at, verified FROM otps
+                WHERE (mobile = ? OR mobile = ?) AND code = ?
+                ORDER BY created_at DESC LIMIT 1
+                """, (clean_mobile, norm_mobile, code.strip()))
+            else:
+                cursor.execute("""
+                SELECT id, expires_at, verified FROM otps
+                WHERE (mobile = ? OR mobile = ?) AND code = ? AND verified = 0
+                ORDER BY created_at DESC LIMIT 1
+                """, (clean_mobile, norm_mobile, code.strip()))
             row = cursor.fetchone()
             if not row:
                 return False
@@ -107,10 +119,21 @@ class AuthService:
 
     @staticmethod
     def get_user_by_mobile(mobile: str) -> Optional[Dict[str, Any]]:
+        clean_mobile = mobile.strip()
+        try:
+            norm_mobile = normalize_indian_mobile(clean_mobile)
+        except Exception:
+            norm_mobile = clean_mobile
+
         with get_db() as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT * FROM users WHERE mobile = ?", (mobile.strip(),))
+            cursor.execute("SELECT * FROM users WHERE mobile = ? OR mobile = ?", (clean_mobile, norm_mobile))
             user = cursor.fetchone()
+            if not user:
+                cursor.execute("SELECT * FROM profiles WHERE phone = ? OR phone = ?", (clean_mobile, norm_mobile))
+                prof = cursor.fetchone()
+                if prof:
+                    user = AuthService.get_user_by_id(prof["user_id"])
             if user:
                 user["interests"] = json.loads(user.get("interests") or "[]")
                 user["skills"] = json.loads(user.get("skills") or "[]")
@@ -451,8 +474,12 @@ class AuthService:
         return user
 
     @staticmethod
-    def send_phone_otp(mobile: str) -> Dict[str, Any]:
+    def send_phone_otp(mobile: str, channel: str = "sms") -> Dict[str, Any]:
         clean_mobile = normalize_indian_mobile(mobile)
+        clean_channel = (channel or "sms").lower().strip()
+        if clean_channel not in ["sms", "whatsapp", "call"]:
+            clean_channel = "sms"
+
         client = get_supabase()
         if client:
             try:
@@ -461,7 +488,13 @@ class AuthService:
                 pass
 
         res = AuthService.request_otp(clean_mobile)
-        res["message"] = f"OTP sent successfully to {clean_mobile}"
+        if clean_channel == "whatsapp":
+            res["message"] = f"OTP verification code sent via WhatsApp to {clean_mobile}"
+        elif clean_channel == "call":
+            res["message"] = f"Voice Call with OTP verification initiated to {clean_mobile}"
+        else:
+            res["message"] = f"OTP verification code sent via SMS to {clean_mobile}"
+        res["channel"] = clean_channel
         return res
 
     @staticmethod
@@ -489,18 +522,20 @@ class AuthService:
         mobile: str,
         otp_code: str,
         full_name: str,
-        email: Optional[str] = None
+        email: Optional[str] = None,
+        username: Optional[str] = None,
+        password: Optional[str] = None
     ) -> Dict[str, Any]:
         clean_mobile = normalize_indian_mobile(mobile)
         valid_name = validate_full_name(full_name)
         valid_email = validate_email_address(email) if email and email.strip() else None
 
         if AuthService.get_user_by_mobile(clean_mobile):
-            raise ValueError("An account with this mobile number already exists.")
+            raise ValueError("An account with this mobile number already exists. Please sign in.")
         if valid_email and AuthService.get_user_by_email(valid_email):
             raise ValueError("An account with this email already exists. Please sign in.")
 
-        is_valid = AuthService.verify_otp(clean_mobile, otp_code)
+        is_valid = AuthService.verify_otp(clean_mobile, otp_code, allow_recent_verified=True)
         if not is_valid:
             with get_db() as conn:
                 cursor = conn.cursor()
@@ -512,10 +547,24 @@ class AuthService:
                         raise ValueError("This OTP has expired. Please request a new one.")
             raise ValueError("Incorrect OTP. Please check the code and try again.")
 
+        # Check unique username / ID if provided
+        final_username = None
+        if username and username.strip():
+            clean_user = username.lower().strip().lstrip("@")
+            if not AuthService.check_username_available(clean_user):
+                raise ValueError(f"ID '@{clean_user}' is already taken. Please choose another.")
+            final_username = clean_user
+
+        final_password = str(uuid.uuid4())
+        if password and password.strip():
+            validate_password_strength(password)
+            final_password = password
+
         user = AuthService.register_user(
             mobile=clean_mobile,
+            username=final_username,
             display_name=valid_name,
-            password=str(uuid.uuid4())
+            password=final_password
         )
         if valid_email:
             with get_db() as conn:
