@@ -212,6 +212,34 @@ export function App() {
     };
   }, []);
 
+  // Real-Time Supabase Browsing & User Activity Telemetry
+  useEffect(() => {
+    const pageUrl =
+      currentRoute === 'login'
+        ? '/login'
+        : currentRoute === 'signup'
+        ? '/signup'
+        : `/${currentTab !== 'feed' ? currentTab : ''}${selectedCategory !== 'All' ? `?cat=${encodeURIComponent(selectedCategory)}` : ''}`;
+
+    api.trackBrowsing(pageUrl, 'page_view', {
+      route: currentRoute,
+      tab: currentTab,
+      category: selectedCategory,
+      theme: currentTheme,
+    });
+  }, [currentRoute, currentTab, selectedCategory, currentTheme]);
+
+  // Debounced search telemetry to Supabase
+  useEffect(() => {
+    if (!searchQuery.trim() || searchQuery.trim().length < 2) return;
+    const timer = setTimeout(() => {
+      api.trackBrowsing(`/?search=${encodeURIComponent(searchQuery.trim())}`, 'search_query', {
+        query: searchQuery.trim(),
+        category: selectedCategory,
+      });
+    }, 1200);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   // Fetch Ideas
   const fetchIdeas = async (category?: string) => {
@@ -342,6 +370,36 @@ export function App() {
     setIdeas(prev => [newIdea, ...prev]);
     showToast('✨ Idea successfully structured with Gemini 3.8 Flash!');
     setSelectedIdeaForJourney(newIdea);
+    api.trackBrowsing(`/ideas/${newIdea.id}`, 'idea_created', {
+      idea_id: newIdea.id,
+      title: newIdea.title,
+      category: newIdea.category,
+    });
+  };
+
+  const handleOpenJourney = (ideaToView: Idea) => {
+    setSelectedIdeaForJourney(ideaToView);
+    api.trackBrowsing(`/ideas/${ideaToView.id}`, 'idea_journey_inspect', {
+      idea_id: ideaToView.id,
+      title: ideaToView.title,
+      category: ideaToView.category,
+    });
+  };
+
+  const handleOpenCollab = (ideaToCollab: Idea) => {
+    setSelectedIdeaForCollab(ideaToCollab);
+    api.trackBrowsing(`/ideas/${ideaToCollab.id}/collaborate`, 'collab_modal_open', {
+      idea_id: ideaToCollab.id,
+      title: ideaToCollab.title,
+    });
+  };
+
+  const handleOpenShare = (ideaToShare: Idea) => {
+    setSelectedIdeaForShare(ideaToShare);
+    api.trackBrowsing(`/ideas/${ideaToShare.id}/share`, 'share_modal_open', {
+      idea_id: ideaToShare.id,
+      title: ideaToShare.title,
+    });
   };
 
   const handleCollabSubmit = async (ideaId: string, role: string, pitch: string) => {
@@ -384,6 +442,7 @@ export function App() {
             api.setToken(token);
             localStorage.setItem('novamind_user', JSON.stringify(user));
             localStorage.setItem('novamind_token', token);
+            api.trackBrowsing('/login', 'login_success', { user_id: user.id, username: user.username });
             navigateTo('app');
             showToast(`✨ Welcome to NovaMind, ${user.display_name || user.username}!`);
           }}
@@ -429,19 +488,33 @@ export function App() {
       {/* Top Navbar */}
       <Navbar
         currentTab={currentTab}
-        setCurrentTab={(tab: string) => setCurrentTab(tab as any)}
-        onOpenCapture={() => setIsCaptureOpen(true)}
-        onOpenNova={() => setIsNovaOpen(true)}
+        setCurrentTab={(tab: string) => {
+          setCurrentTab(tab as any);
+          api.trackBrowsing(`/${tab !== 'feed' ? tab : ''}`, 'tab_switch', { tab });
+        }}
+        onOpenCapture={() => {
+          setIsCaptureOpen(true);
+          api.trackBrowsing('/ideas/new', 'capture_modal_open');
+        }}
+        onOpenNova={() => {
+          setIsNovaOpen(true);
+          api.trackBrowsing('/copilot', 'copilot_open', { tab: currentTab });
+        }}
         currentUser={currentUser}
         onSwitchRole={handleRoleSwitch}
         onOpenProfile={() => {
           setViewProfileUsername(undefined);
           setIsProfileOpen(true);
+          api.trackBrowsing(`/profile/${currentUser?.username || 'me'}`, 'profile_view');
         }}
-        onOpenEditProfile={() => setIsEditProfileOpen(true)}
+        onOpenEditProfile={() => {
+          setIsEditProfileOpen(true);
+          api.trackBrowsing('/profile/edit', 'edit_profile_open');
+        }}
         onOpenSettings={(tab?: string) => {
           setSettingsInitialTab(tab || 'account');
           setIsSettingsOpen(true);
+          api.trackBrowsing(`/settings/${tab || 'account'}`, 'settings_open', { tab: tab || 'account' });
         }}
         onLogout={() => {
           sessionStorage.removeItem('novamind_session_active');
@@ -467,12 +540,12 @@ export function App() {
         {currentTab === 'discover' && (
           <DiscoverView
             onLike={handleLike}
-            onComment={(ideaToComment) => setSelectedIdeaForJourney(ideaToComment)}
-            onShare={(ideaToShare) => setSelectedIdeaForShare(ideaToShare)}
+            onComment={(ideaToComment) => handleOpenJourney(ideaToComment)}
+            onShare={(ideaToShare) => handleOpenShare(ideaToShare)}
             onSave={handleSave}
             onFollow={handleFollow}
-            onCollaborate={(ideaToCollab) => setSelectedIdeaForCollab(ideaToCollab)}
-            onViewDetail={(ideaToView) => setSelectedIdeaForJourney(ideaToView)}
+            onCollaborate={(ideaToCollab) => handleOpenCollab(ideaToCollab)}
+            onViewDetail={(ideaToView) => handleOpenJourney(ideaToView)}
             allIdeas={ideas}
           />
         )}
@@ -668,12 +741,12 @@ export function App() {
                       idea={idea}
                       currentUser={currentUser}
                       onLike={handleLike}
-                      onComment={(ideaToComment) => setSelectedIdeaForJourney(ideaToComment)}
-                      onShare={(ideaToShare) => setSelectedIdeaForShare(ideaToShare)}
+                      onComment={(ideaToComment) => handleOpenJourney(ideaToComment)}
+                      onShare={(ideaToShare) => handleOpenShare(ideaToShare)}
                       onSave={handleSave}
                       onFollow={handleFollow}
-                      onCollaborate={(ideaToCollab) => setSelectedIdeaForCollab(ideaToCollab)}
-                      onViewDetail={(ideaToView) => setSelectedIdeaForJourney(ideaToView)}
+                      onCollaborate={(ideaToCollab) => handleOpenCollab(ideaToCollab)}
+                      onViewDetail={(ideaToView) => handleOpenJourney(ideaToView)}
                       onViewProfile={(username) => {
                         setViewProfileUsername(username);
                         setIsProfileOpen(true);

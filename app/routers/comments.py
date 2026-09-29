@@ -98,6 +98,30 @@ async def post_comment(idea_id: str, data: CommentCreateRequest, user: Dict[str,
                 f"/idea/{idea_id}", now
             ))
 
+    # Real-Time write to Supabase
+    try:
+        from app.services.supabase_sync import supabase_sync
+        import threading
+        threading.Thread(target=supabase_sync.sync_comment, args=({
+            "id": comment_id,
+            "idea_id": idea_id,
+            "user_id": user["id"],
+            "content": data.content,
+            "discussion_type": data.discussion_type,
+            "comment_type": data.comment_type,
+            "safety_status": "approved",
+            "created_at": now
+        },), daemon=True).start()
+        threading.Thread(target=supabase_sync.track_browsing_event, kwargs={
+            "page_url": f"/ideas/{idea_id}",
+            "event_type": "comment_posted",
+            "user_id": user["id"],
+            "username": user.get("username"),
+            "metadata": {"idea_id": idea_id, "comment_type": data.comment_type}
+        }, daemon=True).start()
+    except Exception:
+        pass
+
     return {
         "id": comment_id,
         "idea_id": idea_id,

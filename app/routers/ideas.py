@@ -172,6 +172,35 @@ async def create_idea(
     if auto_run_cop:
         idea_copilot.trigger_idea_copilot(idea_id, user["id"], background_tasks)
 
+    # Real-Time write to Supabase Cloud Database
+    try:
+        from app.services.supabase_sync import supabase_sync
+        background_tasks.add_task(supabase_sync.sync_idea, {
+            "id": idea_id,
+            "user_id": user["id"],
+            "title": title,
+            "raw_content": data.raw_content,
+            "raw_format": data.raw_format,
+            "media_urls": data.media_urls or [],
+            "structured_data": structured_data,
+            "category": category,
+            "tags": tags,
+            "status": status_val,
+            "stage": stage,
+            "safety_score": safety_score,
+            "created_at": now,
+            "updated_at": now
+        })
+        background_tasks.add_task(supabase_sync.track_browsing_event,
+            page_url=f"/ideas/{idea_id}",
+            event_type="idea_create",
+            user_id=user["id"],
+            username=user.get("username"),
+            metadata={"title": title, "category": category}
+        )
+    except Exception:
+        pass
+
     return {
         "id": idea_id,
         "title": title,

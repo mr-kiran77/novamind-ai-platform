@@ -1,7 +1,46 @@
 // NovaMind Frontend API Service Layer
 
-// Use relative URL so requests adapt automatically to Port 5000 (Gateway) or Port 8000 (FastAPI)
-const API_BASE = '';
+// Base origins with resilient dual-engine failover (Port 5000 Express Gateway & Port 8000 FastAPI)
+const CANDIDATE_BASES = [
+  '',
+  'http://localhost:5000',
+  'http://127.0.0.1:5000',
+  'http://localhost:8000',
+  'http://127.0.0.1:8000'
+];
+
+async function extractErrorMessage(res: Response): Promise<string> {
+  try {
+    const data = await res.json();
+    if (data) {
+      if (Array.isArray(data.detail)) {
+        return data.detail.map((d: any) => d.msg || d.message || (typeof d === 'string' ? d : JSON.stringify(d))).join(', ');
+      }
+      if (typeof data.detail === 'string' && data.detail.trim()) {
+        return data.detail;
+      }
+      if (typeof data.message === 'string' && data.message.trim()) {
+        return data.message;
+      }
+      if (typeof data.error === 'string' && data.error.trim()) {
+        return data.error;
+      }
+    }
+  } catch {
+    // Non-JSON response (e.g. proxy HTML 502 or text)
+  }
+
+  if (res.status === 502 || res.status === 504) {
+    return 'Service gateway is synchronizing. Please retry in a moment.';
+  }
+  if (res.status === 404) {
+    return 'Requested endpoint was not found.';
+  }
+  if (res.status === 401 || res.status === 403) {
+    return 'Authentication required or invalid credentials.';
+  }
+  return `Server request error (${res.status})`;
+}
 
 export const api = {
   // Token management
@@ -23,17 +62,39 @@ export const api = {
       headers['Authorization'] = `Bearer ${token}`;
     }
 
-    const res = await fetch(`${API_BASE}${endpoint}`, {
-      ...options,
-      headers,
-    });
+    let lastError: Error | null = null;
 
-    if (!res.ok) {
-      const errorData = await res.json().catch(() => ({ detail: 'API request failed' }));
-      throw new Error(errorData.detail || errorData.message || `HTTP ${res.status}`);
+    // Loop through candidate base URLs to provide rock-solid high availability
+    for (const base of CANDIDATE_BASES) {
+      try {
+        const url = `${base}${endpoint}`;
+        const res = await fetch(url, {
+          ...options,
+          headers,
+        });
+
+        // If response is a 502/504 Bad Gateway from proxy, try next direct port
+        if (res.status === 502 || res.status === 504) {
+          lastError = new Error(await extractErrorMessage(res));
+          continue;
+        }
+
+        if (!res.ok) {
+          const errMsg = await extractErrorMessage(res);
+          throw new Error(errMsg);
+        }
+
+        return await res.json();
+      } catch (err: any) {
+        lastError = err;
+        // If it was an explicit client error (e.g. 400 Bad Request or validation failure), do not retry other ports
+        if (err.message && !err.message.includes('fetch') && !err.message.includes('Network') && !err.message.includes('synchronizing')) {
+          throw err;
+        }
+      }
     }
 
-    return res.json();
+    throw lastError || new Error('Unable to connect to NovaMind service. Please verify your connection.');
   },
 
   // Ideas & Feed
@@ -400,15 +461,15 @@ export const api = {
       headers['Authorization'] = `Bearer ${token}`;
     }
 
-    const res = await fetch(`${API_BASE}/api/users/me/avatar`, {
+    const res = await fetch('/api/users/me/avatar', {
       method: 'POST',
       headers,
       body: formData,
     });
 
     if (!res.ok) {
-      const errorData = await res.json().catch(() => ({ detail: 'Avatar upload failed' }));
-      throw new Error(errorData.detail || errorData.message || `HTTP ${res.status}`);
+      const errMsg = await extractErrorMessage(res);
+      throw new Error(errMsg || 'Avatar upload failed');
     }
 
     return res.json();
@@ -431,6 +492,67 @@ export const api = {
     return this.request<{ status: string; message: string }>('/api/users/me', {
       method: 'DELETE',
       body: JSON.stringify({ password, confirm_phrase }),
+    });
+  },
+
+  // Real-time Supabase Browsing & User Activity Tracking
+  trackBrowsing(
+    page_url_or_opts: string | { page_url: string; event_type?: string; user_id?: string; username?: string; metadata?: Record<string, any> },
+    event_type: string = 'page_view',
+    metadata: Record<string, any> = {}
+  ) {
+    const pageUrl = typeof page_url_or_opts === 'string' ? page_url_or_opts : page_url_or_opts.page_url;
+    const eventType = typeof page_url_or_opts === 'string' ? event_type : (page_url_or_opts.event_type || 'page_view');
+    const meta = typeof page_url_or_opts === 'string' ? metadata : (page_url_or_opts.metadata || {});
+
+    const userJson = localStorage.getItem('novamind_user') || sessionStorage.getItem('novamind_user');
+    let userId: string | undefined = typeof page_url_or_opts === 'object' ? page_url_or_opts.user_id : undefined;
+    let username: string | undefined = typeof page_url_or_opts === 'object' ? page_url_or_opts.username : undefined;
+    if (!userId && userJson) {
+      try {
+        const u = JSON.parse(userJson);
+        userId = u.id;
+        username = u.username;
+      } catch {}
+    }
+    return this.request<{ status: string; event_id: string; supabase_synced: boolean }>('/api/telemetry/browse', {
+      method: 'POST',
+      body: JSON.stringify({
+        page_url: pageUrl,
+        event_type: eventType,
+        user_id: userId,
+        username,
+        metadata: {
+          ...meta,
+          referrer: document.referrer || undefined,
+          screen: `${window.innerWidth}x${window.innerHeight}`,
+          timestamp: new Date().toISOString()
+        }
+      })
+    }).catch(() => {
+      // Non-blocking background telemetry ping
+    });
+  },
+
+  getSupabaseStatus() {
+    return this.request<{
+      connected: boolean;
+      url: string;
+      tables: Record<string, number>;
+      total_records: number;
+      realtime_active: boolean;
+      errors?: string[];
+    }>('/api/supabase/status');
+  },
+
+  syncSupabaseNow() {
+    return this.request<{
+      status: string;
+      synced_counts: Record<string, number>;
+      errors: string[];
+      timestamp: string;
+    }>('/api/supabase/sync-now', {
+      method: 'POST'
     });
   },
 };

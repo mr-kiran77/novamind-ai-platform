@@ -23,6 +23,10 @@ import {
   Moon,
   Sun,
   Monitor,
+  Database,
+  RefreshCw,
+  Copy,
+  CheckCircle2,
 } from 'lucide-react';
 import { api } from '../services/api';
 import type { User, UserSettings, UserSession } from '../types';
@@ -93,6 +97,39 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   // FAQ accordion state
   const [expandedFaq, setExpandedFaq] = useState<number | null>(0);
 
+  // Supabase Cloud State
+  const [supabaseStatus, setSupabaseStatus] = useState<any>(null);
+  const [loadingSupabase, setLoadingSupabase] = useState(false);
+  const [syncingSupabase, setSyncingSupabase] = useState(false);
+  const [syncResult, setSyncResult] = useState<any>(null);
+  const [copiedSql, setCopiedSql] = useState(false);
+
+  const loadSupabaseStatus = async () => {
+    setLoadingSupabase(true);
+    try {
+      const res = await api.getSupabaseStatus();
+      setSupabaseStatus(res);
+    } catch (e: any) {
+      console.error('Failed to get supabase status:', e);
+    } finally {
+      setLoadingSupabase(false);
+    }
+  };
+
+  const handleSyncSupabase = async () => {
+    setSyncingSupabase(true);
+    try {
+      const res = await api.syncSupabaseNow();
+      setSyncResult(res);
+      showToast('✨ Supabase cloud database synchronized!');
+      await loadSupabaseStatus();
+    } catch (e: any) {
+      showToast(e.message || 'Sync failed');
+    } finally {
+      setSyncingSupabase(false);
+    }
+  };
+
   // Sync initial tab when changed
   useEffect(() => {
     if (initialTab) {
@@ -140,6 +177,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     };
 
     loadSessions();
+  }, [isOpen, activeTab]);
+
+  // Load Supabase cloud status when Supabase tab is selected
+  useEffect(() => {
+    if (!isOpen || activeTab !== 'supabase') return;
+    loadSupabaseStatus();
   }, [isOpen, activeTab]);
 
   // Close on Escape
@@ -290,6 +333,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     { id: 'notifications', label: 'Notifications', icon: Bell },
     { id: 'privacy', label: 'Privacy & Security', icon: Shield },
     { id: 'ai', label: 'Nova AI Preferences', icon: Bot },
+    { id: 'supabase', label: 'Supabase Cloud', icon: Database },
     { id: 'support', label: 'Help & Support', icon: HelpCircle },
     { id: 'about', label: 'About NovaMind', icon: Info },
   ];
@@ -397,6 +441,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 {activeTab === 'notifications' && 'Configure automated email and in-app alerts.'}
                 {activeTab === 'privacy' && 'Manage profile visibility, security, and active sessions.'}
                 {activeTab === 'ai' && 'Customize background research, jurisdiction, and tone for Nova.'}
+                {activeTab === 'supabase' && 'Inspect real-time cloud sync, table row counts, and live browsing telemetry in Supabase.'}
                 {activeTab === 'support' && 'Frequently asked questions and direct engineering feedback.'}
                 {activeTab === 'about' && 'Platform specifications and system runtime status.'}
               </p>
@@ -998,6 +1043,164 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       </button>
                     </form>
                   )}
+                </div>
+              </div>
+            )}
+
+            {/* TAB: SUPABASE CLOUD DATABASE & REALTIME */}
+            {activeTab === 'supabase' && (
+              <div className="space-y-5">
+                {/* Connection Status Card */}
+                <div className="p-5 rounded-2xl bg-gradient-to-r from-emerald-950/40 via-teal-950/20 to-purple-950/30 border border-emerald-500/30 space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-300">
+                        <Database className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-base font-extrabold text-white">Supabase Cloud Database</h3>
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[10px] font-bold">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                            {supabaseStatus?.connected ? 'Connected' : 'Connecting...'}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-gray-300 font-mono mt-0.5">
+                          {supabaseStatus?.url || 'https://fsfkxxpqdgmdrqbckauq.supabase.co'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={loadSupabaseStatus}
+                        disabled={loadingSupabase}
+                        className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                      >
+                        <RefreshCw className={`w-3.5 h-3.5 ${loadingSupabase ? 'animate-spin' : ''}`} />
+                        <span>Refresh</span>
+                      </button>
+
+                      <button
+                        onClick={handleSyncSupabase}
+                        disabled={syncingSupabase}
+                        className="px-4 py-1.5 rounded-xl gradient-btn text-white text-xs font-bold flex items-center gap-1.5 shadow-lg shadow-purple-500/25 transition-all"
+                      >
+                        <RefreshCw className={`w-3.5 h-3.5 ${syncingSupabase ? 'animate-spin' : ''}`} />
+                        <span>{syncingSupabase ? 'Syncing...' : 'Sync All to Cloud Now'}</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <p className="text-xs text-gray-300 leading-relaxed">
+                    NovaMind maintains dual-write synchronization and real-time streaming telemetry with Supabase Postgres. Every idea created, user registered, comment posted, reaction recorded, and visitor page view is streamed to Supabase in real-time.
+                  </p>
+                </div>
+
+                {/* Live Supabase Tables & Records Grid */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-gray-400">
+                      Live Cloud Tables &amp; Row Counts
+                    </h4>
+                    <span className="text-[11px] text-gray-400">
+                      Total Cloud Records: <strong className="text-cyan-300 font-mono">{supabaseStatus?.total_records ?? 0}</strong>
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                    {[
+                      { label: 'Ideas & Blueprints', key: 'ideas', icon: '💡' },
+                      { label: 'Platform Users', key: 'users', icon: '👥' },
+                      { label: 'Realtime Conversations', key: 'conversations', icon: '💬' },
+                      { label: 'Live Chat Messages', key: 'messages', icon: '📨' },
+                      { label: 'Idea Comments', key: 'comments', icon: '💭' },
+                      { label: 'Likes & Reactions', key: 'reactions', icon: '❤️' },
+                      { label: '50-Bot Swarm Agents', key: 'agent_definitions', icon: '🤖' },
+                      { label: 'Live Browsing Events', key: 'browsing_events', icon: '🌐' },
+                    ].map(item => {
+                      const count = supabaseStatus?.tables?.[item.key] ?? 0;
+                      return (
+                        <div key={item.key} className="p-3 rounded-2xl bg-white/[0.02] border border-white/5 space-y-1">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-sm">{item.icon}</span>
+                            <span className="text-xs font-mono font-bold text-purple-300 bg-purple-500/10 px-2 py-0.5 rounded-lg border border-purple-500/20">
+                              {count} rows
+                            </span>
+                          </div>
+                          <span className="text-[11px] font-semibold text-gray-300 block truncate">{item.label}</span>
+                          <span className="text-[10px] text-gray-500 font-mono block">public.{item.key}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Real-Time Telemetry & Browsing Monitor */}
+                <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/5 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
+                      <h4 className="text-xs font-bold text-white">Live Browsing &amp; Activity Telemetry Pipeline</h4>
+                    </div>
+                    <span className="text-[10px] bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 px-2 py-0.5 rounded-full font-mono">
+                      Real-Time Active
+                    </span>
+                  </div>
+
+                  <p className="text-[11px] text-gray-300 leading-relaxed">
+                    Whenever anyone browses NovaMind, switches between feed and discover, inspects blueprints, filters categories, or submits collaborations, our telemetry engine records the timestamp, user details, page URL, and interaction metadata into Supabase table <code className="text-purple-300 font-mono bg-white/5 px-1 py-0.5 rounded">public.browsing_events</code>.
+                  </p>
+                </div>
+
+                {/* Row Level Security (RLS) SQL Script Setup Box */}
+                <div className="p-4 rounded-2xl bg-purple-950/20 border border-purple-500/30 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-purple-300 font-bold">
+                      <Shield className="w-4 h-4" />
+                      <span>One-Click Supabase Permissions (ENABLE_SUPABASE_REALTIME.sql)</span>
+                    </div>
+
+                    <button
+                      onClick={() => {
+                        const sqlInstructions = `-- In Supabase Dashboard -> SQL Editor, run:
+-- 1. Create table public.browsing_events
+CREATE TABLE IF NOT EXISTS public.browsing_events (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID,
+    username TEXT DEFAULT 'anonymous_visitor',
+    event_type TEXT NOT NULL,
+    page_url TEXT NOT NULL,
+    metadata JSONB DEFAULT '{}'::jsonb,
+    ip_address TEXT DEFAULT '',
+    user_agent TEXT DEFAULT '',
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- 2. Disable RLS & grant write permissions
+DO $$
+DECLARE r RECORD;
+BEGIN
+    FOR r IN (SELECT tablename FROM pg_tables WHERE schemaname = 'public') LOOP
+        EXECUTE format('ALTER TABLE public.%I DISABLE ROW LEVEL SECURITY;', r.tablename);
+    END LOOP;
+END $$;
+GRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated, service_role;`;
+                        navigator.clipboard.writeText(sqlInstructions);
+                        setCopiedSql(true);
+                        showToast('📋 SQL script copied to clipboard!');
+                        setTimeout(() => setCopiedSql(false), 3000);
+                      }}
+                      className="px-3 py-1 rounded-xl bg-purple-600/30 hover:bg-purple-600/50 border border-purple-500/40 text-purple-200 text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                    >
+                      {copiedSql ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                      <span>{copiedSql ? 'Copied!' : 'Copy SQL Script'}</span>
+                    </button>
+                  </div>
+
+                  <p className="text-[11px] text-gray-400 leading-relaxed">
+                    If you haven't yet granted write access on your Supabase dashboard, open your <a href="https://supabase.com/dashboard/project/fsfkxxpqdgmdrqbckauq" target="_blank" rel="noreferrer" className="text-cyan-400 underline font-semibold">Supabase Dashboard &gt; SQL Editor</a>, paste the script from <code className="text-purple-300 bg-white/5 px-1 py-0.5 rounded">ENABLE_SUPABASE_REALTIME.sql</code>, and click <strong>RUN</strong>. This enables unrestricted cloud writes and real-time event streaming.
+                  </p>
                 </div>
               </div>
             )}

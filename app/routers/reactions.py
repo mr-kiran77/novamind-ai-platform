@@ -49,13 +49,34 @@ def toggle_reaction(idea_id: str, data: ReactionToggleRequest, user: Dict[str, A
             added = False
             message = f"Removed '{VALID_REACTIONS[data.reaction_type]}' reaction"
         else:
-            # Add reaction
+            rx_id = str(uuid.uuid4())
             cursor.execute("""
             INSERT INTO reactions (id, idea_id, user_id, reaction_type, created_at)
             VALUES (?, ?, ?, ?, ?)
-            """, (str(uuid.uuid4()), idea_id, user["id"], data.reaction_type, now))
+            """, (rx_id, idea_id, user["id"], data.reaction_type, now))
             added = True
             message = f"Added '{VALID_REACTIONS[data.reaction_type]}' reaction"
+
+            # Real-Time write to Supabase
+            try:
+                from app.services.supabase_sync import supabase_sync
+                import threading
+                threading.Thread(target=supabase_sync.sync_reaction, args=({
+                    "id": rx_id,
+                    "idea_id": idea_id,
+                    "user_id": user["id"],
+                    "reaction_type": data.reaction_type,
+                    "created_at": now
+                },), daemon=True).start()
+                threading.Thread(target=supabase_sync.track_browsing_event, kwargs={
+                    "page_url": f"/ideas/{idea_id}",
+                    "event_type": "reaction_added",
+                    "user_id": user["id"],
+                    "username": user.get("username"),
+                    "metadata": {"idea_id": idea_id, "reaction": data.reaction_type}
+                }, daemon=True).start()
+            except Exception:
+                pass
 
             # Award reputation points to the creator (+5)
             if idea["user_id"] != user["id"]:

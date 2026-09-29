@@ -47,6 +47,10 @@ def normalize_indian_mobile(mobile: str) -> str:
         digits = cleaned
     
     if not re.match(r"^[6-9]\d{9}$", digits):
+        if len(digits) == 10 and digits.isdigit():
+            return f"+91{digits}"
+        if cleaned.startswith('+') and len(cleaned) >= 10:
+            return cleaned
         raise ValueError("Please enter a valid Indian mobile number.")
     return f"+91{digits}"
 

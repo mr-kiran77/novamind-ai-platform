@@ -15,7 +15,7 @@ from app.services.messaging_service import manager
 from app.routers import (
     auth, ideas, reactions, comments, collaborations,
     trending, discovery, messages, users, moderation,
-    assistant, admin, polls, intelligence, copilot
+    assistant, admin, polls, intelligence, copilot, telemetry
 )
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
@@ -74,6 +74,7 @@ app.include_router(admin.router)
 app.include_router(polls.router)
 app.include_router(intelligence.router)
 app.include_router(copilot.router)
+app.include_router(telemetry.router)
 
 # WebSocket Endpoint for Realtime Communication
 @app.websocket("/ws/{user_id}")

@@ -77,11 +77,17 @@ export function normalizeIndianMobile(mobile: string): { normalized: string; err
     digits = cleaned.slice(1);
   }
 
-  // Must be 10 digits starting with 6, 7, 8, or 9
-  if (!/^[6-9]\d{9}$/.test(digits)) {
-    return { normalized: '', error: 'Please enter a valid Indian mobile number.' };
+  // Accept 10-digit numbers starting with 5-9 or international demo numbers
+  if (/^[5-9]\d{9}$/.test(digits)) {
+    return { normalized: `+91${digits}`, error: null };
   }
-  return { normalized: `+91${digits}`, error: null };
+  if (/^\d{10}$/.test(digits)) {
+    return { normalized: `+91${digits}`, error: null };
+  }
+  if (cleaned.startsWith('+') && cleaned.length >= 11) {
+    return { normalized: cleaned, error: null };
+  }
+  return { normalized: '', error: 'Please enter a valid 10-digit mobile number.' };
 }
 
 /**

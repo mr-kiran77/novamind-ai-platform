@@ -175,6 +175,13 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <span>🔑 Open Login Page</span>
                 <span>↗</span>
               </button>
+              <button
+                onClick={() => onOpenSettings?.('supabase')}
+                className="w-full text-left px-2 py-1.5 rounded-lg hover:bg-emerald-500/20 flex items-center justify-between text-emerald-300 font-semibold"
+              >
+                <span>⚡ Supabase Cloud</span>
+                <span>📡</span>
+              </button>
               {onReplayIntro && (
                 <button
                   onClick={onReplayIntro}
@@ -186,6 +193,19 @@ export const Navbar: React.FC<NavbarProps> = ({
               )}
             </div>
           </div>
+
+          {/* Supabase Realtime Live Indicator */}
+          <button
+            onClick={() => onOpenSettings?.('supabase')}
+            className="hidden xl:flex items-center gap-1.5 text-xs bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-3 py-1.5 rounded-xl transition-all"
+            title="Inspect Supabase Cloud Database & Real-Time Telemetry"
+          >
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            </span>
+            <span className="font-semibold text-[11px]">Supabase Realtime</span>
+          </button>
 
           {/* Replay Intro Animation Button */}
           {onReplayIntro && (

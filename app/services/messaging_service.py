@@ -65,6 +65,20 @@ class MessagingService:
                 VALUES (?, ?, ?, ?)
                 """, (str(uuid.uuid4()), conv_id, pid, now))
                 
+        # Real-Time write to Supabase
+        try:
+            from app.services.supabase_sync import supabase_sync
+            import threading
+            threading.Thread(target=supabase_sync.sync_conversation, args=({
+                "id": conv_id,
+                "type": conv_type,
+                "title": title,
+                "created_by": creator_id,
+                "created_at": now
+            },), daemon=True).start()
+        except Exception:
+            pass
+
         return {"id": conv_id, "type": conv_type, "title": title, "participants": all_participants}
 
     @staticmethod
@@ -90,6 +104,29 @@ class MessagingService:
             
             cursor.execute("SELECT username, display_name, avatar_url FROM users WHERE id = ?", (sender_id,))
             sender_info = cursor.fetchone()
+
+        # Real-Time write to Supabase
+        try:
+            from app.services.supabase_sync import supabase_sync
+            import threading
+            threading.Thread(target=supabase_sync.sync_message, args=({
+                "id": msg_id,
+                "conversation_id": conversation_id,
+                "sender_id": sender_id,
+                "content": content,
+                "media_url": media_url,
+                "is_deleted": False,
+                "created_at": now
+            },), daemon=True).start()
+            threading.Thread(target=supabase_sync.track_browsing_event, kwargs={
+                "page_url": f"/messages/{conversation_id}",
+                "event_type": "message_sent",
+                "user_id": sender_id,
+                "username": sender_info["username"] if sender_info else None,
+                "metadata": {"conversation_id": conversation_id}
+            }, daemon=True).start()
+        except Exception:
+            pass
 
         payload = {
             "type": "chat_message",
