@@ -249,6 +249,55 @@ export const api = {
     });
   },
 
+  signUpEmail(payload: {
+    full_name: string;
+    email: string;
+    password: string;
+    confirm_password: string;
+    mobile?: string;
+  }) {
+    return this.request<{ access_token: string; token_type: string; user: any }>('/api/auth/signup/email', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  signInEmail(payload: { email: string; password: string }) {
+    return this.request<{ access_token: string; token_type: string; user: any }>('/api/auth/signin/email', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  sendPhoneOtp(mobile: string) {
+    return this.request<{ status: string; mobile: string; message: string; dev_code_hint?: string }>('/api/auth/otp/send', {
+      method: 'POST',
+      body: JSON.stringify({ mobile }),
+    });
+  },
+
+  verifyPhoneSignIn(mobile: string, otp_code: string) {
+    return this.request<{ access_token: string; token_type: string; user: any }>('/api/auth/otp/verify-signin', {
+      method: 'POST',
+      body: JSON.stringify({ mobile, otp_code }),
+    });
+  },
+
+  verifyPhoneSignUp(payload: { mobile: string; otp_code: string; full_name: string; email?: string }) {
+    return this.request<{ access_token: string; token_type: string; user: any }>('/api/auth/otp/verify-signup', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  forgotPassword(email: string) {
+    return this.request<{ status: string; message: string }>('/api/auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    });
+  },
+
+
   // User Profile & Settings Management
   getUserProfile(username: string) {
     return this.request<{

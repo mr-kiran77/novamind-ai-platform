@@ -13,6 +13,7 @@ interface NavbarProps {
   onOpenEditProfile: () => void;
   onOpenSettings: (initialTab?: string) => void;
   onLogout: () => void;
+  onOpenAuth?: (mode?: 'signin' | 'signup') => void;
   currentTheme?: string;
 }
 
@@ -27,6 +28,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenEditProfile,
   onOpenSettings,
   onLogout,
+  onOpenAuth,
   currentTheme = 'dark',
 }) => {
   return (
@@ -163,20 +165,57 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <span>SysAdmin (Admin)</span>
                 <span>👑</span>
               </button>
+              <div className="border-t border-white/10 my-1"></div>
+              <button
+                onClick={() => onOpenAuth?.('signin')}
+                className="w-full text-left px-2 py-1.5 rounded-lg hover:bg-purple-500/20 flex items-center justify-between text-purple-300 font-semibold"
+              >
+                <span>🔑 Open Login Page</span>
+                <span>↗</span>
+              </button>
             </div>
           </div>
 
-          {/* Top-Right Accessible Profile Avatar & Popover Menu */}
-          <ProfilePopover
-            currentUser={currentUser}
-            onOpenProfile={onOpenProfile}
-            onOpenEditProfile={onOpenEditProfile}
-            onOpenSettings={onOpenSettings}
-            onLogout={onLogout}
-            currentTheme={currentTheme}
-          />
+          {/* Direct Login Page Button */}
+          <button
+            onClick={() => onOpenAuth?.('signin')}
+            className="hidden md:flex items-center gap-1.5 text-xs bg-purple-500/15 hover:bg-purple-500/25 text-purple-300 border border-purple-500/30 px-3 py-2 rounded-xl transition-all"
+            title="Open Dedicated Sign In / Login Page (/login)"
+          >
+            <span>🔑</span>
+            <span className="font-semibold">Login Page</span>
+          </button>
+
+          {/* Top-Right Accessible Profile Avatar & Popover Menu or Sign In / Sign Up buttons */}
+          {currentUser ? (
+            <ProfilePopover
+              currentUser={currentUser}
+              onOpenProfile={onOpenProfile}
+              onOpenEditProfile={onOpenEditProfile}
+              onOpenSettings={onOpenSettings}
+              onLogout={onLogout}
+              onOpenAuth={onOpenAuth}
+              currentTheme={currentTheme}
+            />
+          ) : (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => onOpenAuth?.('signin')}
+                className="px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-white/10 hover:bg-white/15 text-white transition-colors border border-white/10"
+              >
+                Sign In
+              </button>
+              <button
+                onClick={() => onOpenAuth?.('signup')}
+                className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-purple-600 hover:bg-purple-500 text-white transition-all shadow-md shadow-purple-600/30"
+              >
+                Sign Up
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </header>
   );
 };
+

@@ -56,7 +56,31 @@ def init_db():
             is_suspended INTEGER DEFAULT 0,
             is_banned INTEGER DEFAULT 0,
             is_private INTEGER DEFAULT 0,
-            created_at TEXT NOT NULL
+            created_at TEXT NOT NULL,
+            email TEXT DEFAULT ''
+        );
+        """)
+
+        # Migration: ensure email column exists in existing users table
+        cursor.execute("PRAGMA table_info(users)")
+        user_cols = [r["name"] for r in cursor.fetchall()]
+        if "email" not in user_cols:
+            cursor.execute("ALTER TABLE users ADD COLUMN email TEXT DEFAULT ''")
+
+        # 1b. Profiles Table (Synced with Supabase Auth user_id)
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS profiles (
+            id TEXT PRIMARY KEY,
+            user_id TEXT UNIQUE NOT NULL,
+            full_name TEXT NOT NULL,
+            email TEXT,
+            phone TEXT,
+            preferred_language TEXT DEFAULT 'en',
+            avatar_url TEXT DEFAULT '',
+            bio TEXT DEFAULT '',
+            role TEXT DEFAULT 'user',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
         );
         """)
         

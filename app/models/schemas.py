@@ -1,9 +1,15 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator, model_validator
 from typing import List, Optional, Dict, Any
+from app.utils.validation import (
+    validate_full_name,
+    validate_email_address,
+    normalize_indian_mobile,
+    validate_password_strength
+)
 
 # Authentication & Onboarding
 class OTPRequest(BaseModel):
-    mobile: str = Field(..., description="Mobile number with country code, e.g. +19876543210")
+    mobile: str = Field(..., description="Mobile number with country code, e.g. +919876543210")
 
 class OTPVerify(BaseModel):
     mobile: str
@@ -41,6 +47,89 @@ class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     user: Dict[str, Any]
+
+# Modern Sign Up / Sign In Schemas
+class SignUpRequest(BaseModel):
+    full_name: str
+    email: str
+    mobile: Optional[str] = None
+    password: str
+    confirm_password: str
+
+    @field_validator("full_name")
+    def check_name(cls, v):
+        return validate_full_name(v)
+
+    @field_validator("email")
+    def check_email(cls, v):
+        return validate_email_address(v)
+
+    @field_validator("mobile")
+    def check_mobile(cls, v):
+        if v:
+            return normalize_indian_mobile(v)
+        return None
+
+    @field_validator("password")
+    def check_password(cls, v):
+        return validate_password_strength(v)
+
+    @model_validator(mode="after")
+    def check_passwords_match(self):
+        if self.password != self.confirm_password:
+            raise ValueError("Passwords do not match.")
+        return self
+
+class SignInEmailRequest(BaseModel):
+    email: str
+    password: str
+
+    @field_validator("email")
+    def check_email(cls, v):
+        return validate_email_address(v)
+
+class PhoneOTPRequest(BaseModel):
+    mobile: str
+
+    @field_validator("mobile")
+    def check_mobile(cls, v):
+        return normalize_indian_mobile(v)
+
+class PhoneOTPSignInVerify(BaseModel):
+    mobile: str
+    otp_code: str
+
+    @field_validator("mobile")
+    def check_mobile(cls, v):
+        return normalize_indian_mobile(v)
+
+class PhoneOTPSignUpVerify(BaseModel):
+    mobile: str
+    otp_code: str
+    full_name: str
+    email: Optional[str] = None
+
+    @field_validator("mobile")
+    def check_mobile(cls, v):
+        return normalize_indian_mobile(v)
+
+    @field_validator("full_name")
+    def check_name(cls, v):
+        return validate_full_name(v)
+
+    @field_validator("email")
+    def check_email(cls, v):
+        if v:
+            return validate_email_address(v)
+        return None
+
+class ForgotPasswordRequest(BaseModel):
+    email: str
+
+    @field_validator("email")
+    def check_email(cls, v):
+        return validate_email_address(v)
+
 
 # User Profile
 class UserProfileUpdate(BaseModel):

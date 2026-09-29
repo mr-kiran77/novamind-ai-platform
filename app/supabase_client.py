@@ -6,8 +6,9 @@ from app.config import settings
 
 logger = logging.getLogger("novamind.supabase")
 
-SUPABASE_URL = os.getenv("SUPABASE_URL", "")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY", "") or os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
+SUPABASE_URL = os.getenv("SUPABASE_URL") or settings.SUPABASE_URL or ""
+SUPABASE_KEY = os.getenv("SUPABASE_KEY") or os.getenv("SUPABASE_SERVICE_ROLE_KEY") or settings.SUPABASE_KEY or ""
+
 
 _supabase_client: Optional[Client] = None
 

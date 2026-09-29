@@ -12,6 +12,7 @@ import {
   LogOut,
   ChevronRight,
   Sparkles,
+  LogIn,
 } from 'lucide-react';
 import { ProfileAvatar } from './ProfileAvatar';
 import type { User } from '../types';
@@ -22,6 +23,7 @@ interface ProfilePopoverProps {
   onOpenEditProfile: () => void;
   onOpenSettings: (initialTab?: string) => void;
   onLogout: () => void;
+  onOpenAuth?: (mode?: 'signin' | 'signup') => void;
   currentTheme?: string;
 }
 
@@ -31,6 +33,7 @@ export const ProfilePopover: React.FC<ProfilePopoverProps> = ({
   onOpenEditProfile,
   onOpenSettings,
   onLogout,
+  onOpenAuth,
   currentTheme = 'dark',
 }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -273,6 +276,17 @@ export const ProfilePopover: React.FC<ProfilePopoverProps> = ({
               </div>
               <span className="text-[10px] text-gray-500 font-mono">v1.2</span>
             </button>
+
+            {onOpenAuth && (
+              <button
+                role="menuitem"
+                onClick={() => handleAction(() => onOpenAuth('signin'))}
+                className="w-full text-left px-3 py-2 rounded-xl text-xs font-medium text-purple-300 hover:text-white hover:bg-purple-500/10 flex items-center gap-2.5 transition-colors"
+              >
+                <LogIn className="w-4 h-4 text-purple-400" />
+                <span>Sign In / Switch Account</span>
+              </button>
+            )}
           </div>
 
           {/* Section 4: Log Out */}

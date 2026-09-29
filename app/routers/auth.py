@@ -2,12 +2,79 @@ from fastapi import APIRouter, HTTPException, Depends, status
 from typing import Dict, Any
 from app.models.schemas import (
     OTPRequest, OTPVerify, UserRegister, UserLogin,
-    PasswordResetRequest, PasswordResetConfirm, TokenResponse
+    PasswordResetRequest, PasswordResetConfirm, TokenResponse,
+    SignUpRequest, SignInEmailRequest, PhoneOTPRequest,
+    PhoneOTPSignInVerify, PhoneOTPSignUpVerify, ForgotPasswordRequest
 )
 from app.services.auth_service import auth_service
 from app.dependencies import get_current_user
 
 router = APIRouter(prefix="/api/auth", tags=["Authentication"])
+
+# Modern Sign Up / Sign In Endpoints
+@router.post("/signup/email", response_model=TokenResponse)
+def signup_email(data: SignUpRequest):
+    try:
+        user = auth_service.register_email_user(
+            full_name=data.full_name,
+            email=data.email,
+            password=data.password,
+            mobile=data.mobile
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    token = auth_service.create_access_token({"sub": user["id"], "username": user["username"], "role": user["role"]})
+    return {"access_token": token, "token_type": "bearer", "user": user}
+
+@router.post("/signin/email", response_model=TokenResponse)
+def signin_email(data: SignInEmailRequest):
+    try:
+        user = auth_service.authenticate_email_user(
+            email=data.email,
+            password=data.password
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    token = auth_service.create_access_token({"sub": user["id"], "username": user["username"], "role": user["role"]})
+    return {"access_token": token, "token_type": "bearer", "user": user}
+
+@router.post("/otp/send")
+def send_otp(data: PhoneOTPRequest):
+    try:
+        return auth_service.send_phone_otp(data.mobile)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.post("/otp/verify-signin", response_model=TokenResponse)
+def verify_otp_signin(data: PhoneOTPSignInVerify):
+    try:
+        user = auth_service.verify_phone_otp_signin(data.mobile, data.otp_code)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    token = auth_service.create_access_token({"sub": user["id"], "username": user["username"], "role": user["role"]})
+    return {"access_token": token, "token_type": "bearer", "user": user}
+
+@router.post("/otp/verify-signup", response_model=TokenResponse)
+def verify_otp_signup(data: PhoneOTPSignUpVerify):
+    try:
+        user = auth_service.verify_phone_otp_signup(
+            mobile=data.mobile,
+            otp_code=data.otp_code,
+            full_name=data.full_name,
+            email=data.email
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    token = auth_service.create_access_token({"sub": user["id"], "username": user["username"], "role": user["role"]})
+    return {"access_token": token, "token_type": "bearer", "user": user}
+
+@router.post("/forgot-password")
+def forgot_password(data: ForgotPasswordRequest):
+    try:
+        return auth_service.request_password_reset(data.email)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
 
 @router.post("/otp/request")
 def request_otp(data: OTPRequest):

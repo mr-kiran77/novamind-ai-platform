@@ -102,6 +102,10 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str):
         manager.disconnect(user_id, websocket)
 
 @app.get("/")
+@app.get("/login")
+@app.get("/signin")
+@app.get("/signup")
+@app.get("/auth")
 def serve_index():
     """Serves the primary Single-Page Application interface."""
     if react_dist_dir.exists() and (react_dist_dir / "index.html").exists():

@@ -20,6 +20,8 @@ import { ModerationView } from './components/ModerationView';
 import { ProfileModal } from './components/ProfileModal';
 import { EditProfileModal } from './components/EditProfileModal';
 import { SettingsModal } from './components/SettingsModal';
+import { AuthModal } from './components/AuthModal';
+import { LoginPage } from './components/LoginPage';
 import { api } from './services/api';
 import type { Idea, User } from './types';
 
@@ -51,7 +53,7 @@ export function App() {
   const [selectedIdeaForCollab, setSelectedIdeaForCollab] = useState<Idea | null>(null);
   const [selectedIdeaForShare, setSelectedIdeaForShare] = useState<Idea | null>(null);
 
-  // Profile & Settings Modals state
+  // Profile, Settings & Auth Modals state
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [viewProfileUsername, setViewProfileUsername] = useState<string | undefined>(undefined);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
@@ -59,10 +61,27 @@ export function App() {
   const [settingsInitialTab, setSettingsInitialTab] = useState<string>('account');
   const [currentTheme, setCurrentTheme] = useState<'dark' | 'light' | 'system'>('dark');
 
+  // Auth Modal & Page Route State
+  const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const [authInitialMode, setAuthInitialMode] = useState<'signin' | 'signup'>('signin');
+  const [currentRoute, setCurrentRoute] = useState<'app' | 'login' | 'signup'>('app');
+
+  const navigateTo = (route: 'app' | 'login' | 'signup') => {
+    setCurrentRoute(route);
+    if (route === 'login') {
+      window.history.pushState({}, '', '/login');
+    } else if (route === 'signup') {
+      window.history.pushState({}, '', '/signup');
+    } else {
+      window.history.pushState({}, '', '/');
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   // Toast notification
   const [toast, setToast] = useState<string | null>(null);
 
-  // Active Demo User
+  // Active User State
   const [currentUser, setCurrentUser] = useState<User>({
     id: 'user_1',
     username: 'drmayalin',
@@ -102,7 +121,59 @@ export function App() {
   useEffect(() => {
     const savedTheme = (localStorage.getItem('novamind_theme') as any) || 'dark';
     applyTheme(savedTheme);
+
+    // Hydrate authenticated user session from localStorage
+    const savedUserStr = localStorage.getItem('novamind_user');
+    const savedToken = localStorage.getItem('novamind_token');
+    if (savedUserStr && savedToken) {
+      try {
+        const parsed = JSON.parse(savedUserStr);
+        if (parsed && parsed.id) {
+          setCurrentUser(parsed);
+          api.setToken(savedToken);
+        }
+      } catch (e) {
+        // ignore invalid saved user
+      }
+    }
+
+    // Route synchronization with URL path and hash
+    const syncRouteFromUrl = () => {
+      const path = window.location.pathname.toLowerCase();
+      const hash = window.location.hash.toLowerCase();
+      if (
+        path === '/login' ||
+        path === '/signin' ||
+        hash === '#/login' ||
+        hash === '#/signin' ||
+        hash === '#login' ||
+        hash === '#signin'
+      ) {
+        setCurrentRoute('login');
+      } else if (
+        path === '/signup' ||
+        path === '/register' ||
+        hash === '#/signup' ||
+        hash === '#/register' ||
+        hash === '#signup' ||
+        hash === '#register'
+      ) {
+        setCurrentRoute('signup');
+      } else {
+        setCurrentRoute('app');
+      }
+    };
+
+    syncRouteFromUrl();
+    window.addEventListener('popstate', syncRouteFromUrl);
+    window.addEventListener('hashchange', syncRouteFromUrl);
+
+    return () => {
+      window.removeEventListener('popstate', syncRouteFromUrl);
+      window.removeEventListener('hashchange', syncRouteFromUrl);
+    };
   }, []);
+
 
   // Fetch Ideas
   const fetchIdeas = async (category?: string) => {
@@ -250,6 +321,36 @@ export function App() {
     return matchTitle || matchSummary || matchContent || matchTag;
   });
 
+  // Dedicated Full-Screen Login & Sign Up Page Route View
+  if (currentRoute === 'login' || currentRoute === 'signup') {
+    return (
+      <div className="min-h-screen bg-[#07080d]">
+        <LoginPage
+          initialMode={currentRoute === 'signup' ? 'signup' : 'signin'}
+          onSuccess={(user, token) => {
+            setCurrentUser(user);
+            api.setToken(token);
+            localStorage.setItem('novamind_user', JSON.stringify(user));
+            localStorage.setItem('novamind_token', token);
+            navigateTo('app');
+            showToast(`✨ Welcome back, ${user.display_name || user.username}!`);
+          }}
+          onNavigateHome={() => navigateTo('app')}
+          onSwitchPersona={(role) => {
+            handleRoleSwitch(role);
+            navigateTo('app');
+          }}
+        />
+        {toast && (
+          <div className="fixed top-20 right-6 z-50 bg-purple-600/90 border border-purple-400 text-white text-xs px-4 py-2.5 rounded-xl shadow-2xl backdrop-blur-md animate-fade-in flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-cyan-300" />
+            <span>{toast}</span>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#07080d] text-white flex flex-col font-sans selection:bg-purple-500 selection:text-white relative">
       {/* Toast Notification */}
@@ -279,7 +380,14 @@ export function App() {
         }}
         onLogout={() => {
           localStorage.removeItem('novamind_token');
-          showToast('Logged out of session. Switched to public guest mode.');
+          localStorage.removeItem('novamind_user');
+          api.setToken('');
+          setCurrentUser(null as any);
+          showToast('Logged out of session. Redirecting to login page...');
+          navigateTo('login');
+        }}
+        onOpenAuth={(initialMode?: 'signin' | 'signup') => {
+          navigateTo(initialMode === 'signup' ? 'signup' : 'login');
         }}
         currentTheme={currentTheme}
       />
@@ -646,6 +754,19 @@ export function App() {
         onUserDeleted={() => {
           handleRoleSwitch('user');
         }}
+      />
+
+      {/* Modern Authentication Modal (Sign In / Sign Up) */}
+      <AuthModal
+        isOpen={isAuthOpen}
+        onClose={() => setIsAuthOpen(false)}
+        onSuccess={(user, token) => {
+          setCurrentUser(user);
+          api.setToken(token);
+          localStorage.setItem('novamind_user', JSON.stringify(user));
+          showToast(`Welcome back, ${user.display_name}!`);
+        }}
+        initialMode={authInitialMode}
       />
     </div>
   );

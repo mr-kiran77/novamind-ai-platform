@@ -225,7 +225,7 @@ app.post(['/api/assistant/chat', '/api/nova'], express.json(), async (req, res) 
 
 // Proxy API requests to Python FastAPI AI Engine without stripping '/api'
 app.use(createProxyMiddleware({
-  filter: (pathname) => pathname.startsWith('/api') || pathname.startsWith('/ws'),
+  pathFilter: ['/api/**', '/ws/**'],
   target: FASTAPI_URL,
   changeOrigin: true,
   ws: true,
