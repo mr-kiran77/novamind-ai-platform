@@ -253,17 +253,80 @@ async def seed_all():
                 'public', 'comment', 'approved', ?)
         """, (str(uuid.uuid4()), c1_id, now_iso))
 
-    # 5. Seed Collaboration Request
+    # 5. Seed Diverse Collaboration Proposals with AI Screening
     with get_db() as conn:
         cursor = conn.cursor()
-        cursor.execute("""
-        INSERT INTO collaborations (id, idea_id, requester_id, role_type, pitch_message, status, created_at)
-        VALUES (?, 'idea_piezo_roads', 'usr_raj_robotics', 'technical',
-                'I can help prototype the power conditioning circuit and buck-boost converters for your piezoelectric array. I have hardware lab access.',
-                'accepted', ?)
-        """, (str(uuid.uuid4()), t_minus_1d))
+        collabs = [
+            (
+                str(uuid.uuid4()), "idea_piezo_roads", "usr_raj_robotics", "technical",
+                "I have built custom buck-boost converter firmware in C/Rust and have access to an oscilloscope, thermal camera, and bench power analyzer in our university lab. We can benchmark the PZT transducer efficiency at 20kHz.",
+                "pending", 94, "genuine_serious",
+                "✨ High Priority: Candidate offers specific tangible lab equipment (oscilloscope, power analyzer), firmware code (C/Rust), and quantifiable benchmarking targets.",
+                t_minus_1d
+            ),
+            (
+                str(uuid.uuid4()), "idea_piezo_roads", "usr_alex_vance", "business",
+                "I have experience with municipal public-private partnerships (PPP) and grant applications for highway transit authorities. Can help structure pilot permits.",
+                "pending", 68, "moderate",
+                "⚡ Moderate Interest: Relevant municipal grant experience, recommend scheduling an exploratory intro call to discuss regional pilot corridors.",
+                t_minus_2d
+            ),
+            (
+                str(uuid.uuid4()), "idea_piezo_roads", "usr_sysadmin", "business",
+                "hi, cool idea, let's collab and make money",
+                "pending", 25, "low_effort_time_pass",
+                "⚠️ Flagged as Low Effort: Message lacks concrete technical details, past project proof, or specific deliverables.",
+                t_minus_3d
+            )
+        ]
+        for c_id, i_id, req_id, r_type, pitch, st, score, cls, rat, created in collabs:
+            cursor.execute("""
+            INSERT INTO collaborations (
+                id, idea_id, requester_id, role_type, pitch_message, status,
+                ai_seriousness_score, ai_classification, ai_rationale, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (c_id, i_id, req_id, r_type, pitch, st, score, cls, rat, created))
 
-    # 6. Seed Conversations & Realtime Messages
+    # 6. Seed Community Poll & Votes (Instagram-Style)
+    with get_db() as conn:
+        cursor = conn.cursor()
+        poll_id = "poll_piezo_transducer"
+        options = [
+            "Piezo Ceramic Wafers (PZT)",
+            "PVDF Polymer Thin Film",
+            "Electromagnetic Oscillators",
+            "Triboelectric Nanogenerators (TENG)"
+        ]
+        cursor.execute("""
+        INSERT INTO polls (id, idea_id, question, options, created_by, created_at)
+        VALUES (?, 'idea_piezo_roads', 'Which kinetic transducer material offers the best ROI for highway deployment?', ?, 'usr_maya_lin', ?)
+        """, (poll_id, json.dumps(options), t_minus_2d))
+
+        # Seed votes
+        votes = [
+            ("usr_alex_vance", 0), # PZT
+            ("usr_raj_robotics", 0), # PZT
+            ("usr_sysadmin", 3),    # TENG
+        ]
+        for u_id, opt_idx in votes:
+            cursor.execute("""
+            INSERT INTO poll_votes (id, poll_id, user_id, option_index, created_at)
+            VALUES (?, ?, ?, ?, ?)
+            """, (str(uuid.uuid4()), poll_id, u_id, opt_idx, t_minus_1d))
+
+    # 7. Seed Follows & Saved Ideas
+    with get_db() as conn:
+        cursor = conn.cursor()
+        # Follow relationships
+        cursor.execute("INSERT OR IGNORE INTO follows (id, follower_id, following_id, is_connection, created_at) VALUES (?, 'usr_maya_lin', 'usr_raj_robotics', 1, ?)", (str(uuid.uuid4()), t_minus_2d))
+        cursor.execute("INSERT OR IGNORE INTO follows (id, follower_id, following_id, is_connection, created_at) VALUES (?, 'usr_raj_robotics', 'usr_maya_lin', 1, ?)", (str(uuid.uuid4()), t_minus_2d))
+        cursor.execute("INSERT OR IGNORE INTO follows (id, follower_id, following_id, is_connection, created_at) VALUES (?, 'usr_alex_vance', 'usr_maya_lin', 0, ?)", (str(uuid.uuid4()), t_minus_1d))
+
+        # Saved Ideas
+        cursor.execute("INSERT OR IGNORE INTO saved_ideas (id, user_id, idea_id, created_at) VALUES (?, 'usr_maya_lin', 'idea_tactile_glove', ?)", (str(uuid.uuid4()), t_minus_1d))
+        cursor.execute("INSERT OR IGNORE INTO saved_ideas (id, user_id, idea_id, created_at) VALUES (?, 'usr_raj_robotics', 'idea_piezo_roads', ?)", (str(uuid.uuid4()), t_minus_1d))
+
+    # 8. Seed Conversations & Realtime Messages
     with get_db() as conn:
         cursor = conn.cursor()
         conv_id = "conv_energy_team"

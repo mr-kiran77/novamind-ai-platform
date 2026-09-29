@@ -3,29 +3,111 @@
 @tailwind utilities;
 
 :root {
-  color-scheme: dark;
+  color-scheme: dark light;
 }
 
 body {
   margin: 0;
-  background-color: #0a0b10;
-  color: #f3f4f6;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
   overflow-x: hidden;
+  transition: background-color 0.25s ease, color 0.25s ease;
 }
 
-/* Glassmorphism utility */
-.glass-panel {
-  background: rgba(18, 20, 32, 0.7);
+/* Dark Mode Defaults */
+html.dark body {
+  background-color: #07080d;
+  color: #f3f4f6;
+}
+
+.dark .glass-panel {
+  background: rgba(18, 20, 32, 0.75);
   backdrop-filter: blur(16px);
   border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+}
+
+/* Light Mode Defaults */
+html:not(.dark) body {
+  background-color: #f8fafc;
+  color: #0f172a;
+}
+
+html:not(.dark) .glass-panel {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.06), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
 }
 
 .gradient-btn {
   background: linear-gradient(135deg, #8b5cf6 0%, #06b6d4 100%);
   transition: all 0.2s ease-in-out;
+  color: #ffffff !important;
 }
 .gradient-btn:hover {
   filter: brightness(1.1);
   box-shadow: 0 0 20px rgba(139, 92, 246, 0.4);
+}
+
+/* Light Mode Overrides for text, cards, borders */
+html:not(.dark) .text-white {
+  color: #0f172a;
+}
+html:not(.dark) .text-gray-200 {
+  color: #1e293b;
+}
+html:not(.dark) .text-gray-300 {
+  color: #334155;
+}
+html:not(.dark) .text-gray-400 {
+  color: #64748b;
+}
+html:not(.dark) .text-gray-500 {
+  color: #64748b;
+}
+
+html:not(.dark) .bg-white\/5 {
+  background-color: rgba(0, 0, 0, 0.04);
+}
+html:not(.dark) .bg-white\/10 {
+  background-color: rgba(0, 0, 0, 0.07);
+}
+html:not(.dark) .bg-white\/\[0\.02\] {
+  background-color: rgba(0, 0, 0, 0.02);
+}
+html:not(.dark) .bg-white\/\[0\.03\] {
+  background-color: rgba(0, 0, 0, 0.03);
+}
+
+html:not(.dark) .border-white\/5 {
+  border-color: rgba(0, 0, 0, 0.06);
+}
+html:not(.dark) .border-white\/10 {
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+html:not(.dark) .bg-black\/30,
+html:not(.dark) .bg-black\/40,
+html:not(.dark) .bg-black\/50,
+html:not(.dark) .bg-black\/85 {
+  background-color: rgba(241, 245, 249, 0.9);
+  border-color: rgba(203, 213, 225, 0.7);
+}
+
+html:not(.dark) input,
+html:not(.dark) textarea {
+  color: #0f172a;
+  background-color: #ffffff;
+  border-color: #cbd5e1;
+}
+
+html:not(.dark) input::placeholder,
+html:not(.dark) textarea::placeholder {
+  color: #94a3b8;
+}
+
+/* Ensure button labels and special badges retain crisp contrasting colors */
+.gradient-btn *,
+.btn-keep-white {
+  color: #ffffff !important;
 }

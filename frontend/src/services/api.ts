@@ -218,6 +218,30 @@ export const api = {
     });
   },
 
+  // 50-Agent Autonomous Innovation Swarm
+  getSwarm() {
+    return this.request<{
+      status: string;
+      total_agents: number;
+      active_agents: number;
+      engine: string;
+      architecture: string;
+      squad_counts: { domain_specialists: number; risk_auditors: number; angel_scouts: number };
+      squads: {
+        domain_specialists: Array<{ id: string; name: string; role: string; category: string; confidence: number }>;
+        risk_auditors: Array<{ id: string; name: string; role: string; category: string; confidence: number }>;
+        angel_scouts: Array<{ id: string; name: string; role: string; category: string; confidence: number }>;
+      };
+    }>('/api/assistant/swarm');
+  },
+
+  runSwarmAudit(ideaId?: string, customPrompt?: string) {
+    return this.request<any>('/api/assistant/swarm/audit', {
+      method: 'POST',
+      body: JSON.stringify({ idea_id: ideaId || null, custom_prompt: customPrompt || null }),
+    });
+  },
+
   // Authentication & Demo
   demoSwitch(role: string = 'user') {
     return this.request<any>(`/api/auth/demo-switch?role=${role}`, {

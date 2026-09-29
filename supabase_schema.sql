@@ -135,15 +135,38 @@ CREATE TABLE IF NOT EXISTS public.comments (
     created_at TIMESTAMPTZ DEFAULT now()
 );
 
--- 11. Collaborations Table
+-- 11. Collaborations Table (with AI Screening)
 CREATE TABLE IF NOT EXISTS public.collaborations (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     idea_id UUID REFERENCES public.ideas(id) ON DELETE CASCADE,
     requester_id UUID REFERENCES public.users(id) ON DELETE CASCADE,
-    role_type TEXT NOT NULL, -- 'technical', 'design', 'business', 'research', 'mentorship', 'general'
+    role_type TEXT NOT NULL, -- 'advanced_version', 'hardware_materials', 'technical', 'design', 'research', 'business'
     pitch_message TEXT NOT NULL,
     status TEXT DEFAULT 'pending', -- 'pending', 'accepted', 'declined'
+    ai_seriousness_score INT DEFAULT 0, -- 0 to 100%
+    ai_classification TEXT DEFAULT 'pending', -- 'genuine_serious', 'moderate', 'low_effort_time_pass'
+    ai_rationale TEXT DEFAULT '',
+    ai_skills_matched JSONB DEFAULT '[]'::jsonb,
     created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- 11b. Community Polls (Instagram-Style)
+CREATE TABLE IF NOT EXISTS public.polls (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    idea_id UUID REFERENCES public.ideas(id) ON DELETE CASCADE,
+    question TEXT NOT NULL,
+    options JSONB NOT NULL, -- Array of 2 to 4 options
+    created_by UUID REFERENCES public.users(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.poll_votes (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    poll_id UUID REFERENCES public.polls(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES public.users(id) ON DELETE CASCADE,
+    option_index INT NOT NULL, -- 0 to 3
+    created_at TIMESTAMPTZ DEFAULT now(),
+    UNIQUE(poll_id, user_id)
 );
 
 -- 12. Conversations & Realtime Messages

@@ -97,6 +97,30 @@ const App = {
   }
 };
 
+// Theme Toggle Function (Light & Dark Modes)
+function toggleTheme() {
+  const html = document.documentElement;
+  const isDark = html.classList.contains("dark");
+  const icon = document.getElementById("theme-toggle-icon");
+  const text = document.getElementById("theme-toggle-text");
+
+  if (isDark) {
+    html.classList.remove("dark");
+    html.classList.add("light");
+    localStorage.setItem("novamind_theme", "light");
+    if (icon) icon.innerText = "🌙";
+    if (text) text.innerText = "Dark";
+    API.showToast("Light mode enabled", "info");
+  } else {
+    html.classList.remove("light");
+    html.classList.add("dark");
+    localStorage.setItem("novamind_theme", "dark");
+    if (icon) icon.innerText = "☀️";
+    if (text) text.innerText = "Light";
+    API.showToast("Dark mode enabled", "info");
+  }
+}
+
 // Global navigate function
 function navigate(viewName, params = {}) {
   App.navigate(viewName, params);
@@ -104,5 +128,14 @@ function navigate(viewName, params = {}) {
 
 // Start application when DOM is ready
 document.addEventListener("DOMContentLoaded", () => {
+  const saved = localStorage.getItem("novamind_theme") || "dark";
+  const icon = document.getElementById("theme-toggle-icon");
+  const text = document.getElementById("theme-toggle-text");
+  if (icon) {
+    icon.innerText = saved === "light" ? "🌙" : "☀️";
+  }
+  if (text) {
+    text.innerText = saved === "light" ? "Dark" : "Light";
+  }
   App.init();
 });
